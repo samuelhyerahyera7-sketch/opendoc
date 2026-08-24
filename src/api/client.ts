@@ -69,6 +69,17 @@ export type ReceivedFile = PatientFile & {
   from_doctor_specialty: string
 }
 
+export type Notification = {
+  id: string
+  doctor_id: string
+  type: string
+  title: string
+  body: string
+  link: string | null
+  read_at: string | null
+  created_at: string
+}
+
 export type DirectoryDoctor = {
   id: string
   name: string
@@ -252,6 +263,17 @@ export const api = {
 
   resetPassword: (token: string, password: string) =>
     request<{ ok: true }>('/doctors/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+
+  getNotifications: (token: string) => request<Notification[]>('/doctors/me/notifications', { headers: authHeaders(token) }),
+
+  getUnreadNotificationCount: (token: string) =>
+    request<{ count: number }>('/doctors/me/notifications/unread-count', { headers: authHeaders(token) }),
+
+  markNotificationRead: (token: string, id: string) =>
+    request<void>(`/doctors/me/notifications/${id}/read`, { method: 'POST', headers: authHeaders(token) }),
+
+  markAllNotificationsRead: (token: string) =>
+    request<void>('/doctors/me/notifications/read-all', { method: 'POST', headers: authHeaders(token) }),
 
   admin: {
     getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),

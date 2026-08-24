@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pool from '../db.mjs'
 import { requireAdmin } from '../auth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
+import { notify } from '../notifications.mjs'
 
 const router = Router()
 
@@ -33,6 +34,13 @@ router.post('/admin/doctors/:id/verify', requireAdmin, async (req, res) => {
     [req.params.id],
   )
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await notify(
+    rows[0].id,
+    'verification_approved',
+    'Your HPCSA number has been verified',
+    'Your profile is now marked as verified and visible to patients.',
+    '/provider/dashboard',
+  )
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })
 
@@ -42,6 +50,13 @@ router.post('/admin/doctors/:id/reject', requireAdmin, async (req, res) => {
     [req.params.id],
   )
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await notify(
+    rows[0].id,
+    'verification_rejected',
+    'Your verification was declined',
+    'We could not verify your HPCSA number. Please check your details and contact support.',
+    '/provider/dashboard',
+  )
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })
 

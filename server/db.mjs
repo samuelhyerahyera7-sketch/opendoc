@@ -132,6 +132,21 @@ export async function initSchema() {
       expires_at TIMESTAMPTZ NOT NULL,
       used_at TIMESTAMPTZ
     );
+
+    -- In-app notifications for doctors: new bookings, files received,
+    -- verification decisions, new reviews.
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      link TEXT,
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS notifications_doctor_idx ON notifications(doctor_id, created_at DESC);
   `)
 }
 

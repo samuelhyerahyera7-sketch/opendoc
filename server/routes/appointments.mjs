@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import pool from '../db.mjs'
 import { requireAuth } from '../auth.mjs'
 import { sendEmail, appointmentConfirmationEmail, newBookingAlertEmail } from '../email.mjs'
+import { notify } from '../notifications.mjs'
 
 const router = Router()
 
@@ -67,6 +68,14 @@ router.post('/appointments', async (req, res) => {
     reason,
   })
   await sendEmail({ to: doctor.email, ...doctorAlert })
+
+  await notify(
+    doctorId,
+    'new_appointment',
+    `New appointment: ${firstName} ${lastName}`,
+    `${slot.day_label} at ${slot.time_label}${reason ? ` — ${reason}` : ''}`,
+    '/provider/dashboard',
+  )
 
   const { rows } = await pool.query('SELECT * FROM appointments WHERE id = $1', [id])
   res.status(201).json({ ...rows[0], emailSent: confirmationResult.sent })
@@ -155,6 +164,14 @@ router.post('/appointments/review/:token', async (req, res) => {
     [appt.doctor_id],
   )
   await pool.query('UPDATE doctors SET rating = $1, review_count = $2 WHERE id = $3', [agg[0].avg, agg[0].count, appt.doctor_id])
+
+  await notify(
+    appt.doctor_id,
+    'new_review',
+    `New ${ratingNum}-star review from ${patientName}`,
+    comment || '',
+    `/doctor/${appt.doctor_id}`,
+  )
 
   res.status(201).json({ ok: true })
 })

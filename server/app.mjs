@@ -6,6 +6,7 @@ import doctorsRouter from './routes/doctors.mjs'
 import appointmentsRouter from './routes/appointments.mjs'
 import filesRouter from './routes/files.mjs'
 import adminRouter from './routes/admin.mjs'
+import notificationsRouter from './routes/notifications.mjs'
 
 // Schema creation always runs once per instance (memoized). Demo data
 // seeding is opt-in via SEED_DEMO_DATA=true — meant for local dev only, so
@@ -38,6 +39,7 @@ app.use('/api', doctorsRouter)
 app.use('/api', appointmentsRouter)
 app.use('/api', filesRouter)
 app.use('/api', adminRouter)
+app.use('/api', notificationsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

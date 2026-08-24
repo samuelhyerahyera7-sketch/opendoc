@@ -14,6 +14,7 @@ import {
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import { api, ApiError, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
 import VerificationBadge from '../../components/VerificationBadge'
+import NotificationBell from '../../components/NotificationBell'
 
 type Tab = 'appointments' | 'schedule' | 'files'
 
@@ -45,12 +46,15 @@ export default function ProviderDashboard() {
               <p className="text-sm text-brand-600">{doctor.specialty} &middot; {doctor.city || 'No city set'}</p>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 rounded-full border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50"
-          >
-            <LogOut size={15} /> Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <NotificationBell token={token} />
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 rounded-full border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50"
+            >
+              <LogOut size={15} /> Log out
+            </button>
+          </div>
         </div>
       </div>
 

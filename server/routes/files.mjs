@@ -4,6 +4,7 @@ import multer from 'multer'
 import pool from '../db.mjs'
 import { requireAuth } from '../auth.mjs'
 import { uploadFile, readFile } from '../storage.mjs'
+import { notify } from '../notifications.mjs'
 
 const router = Router()
 
@@ -70,10 +71,21 @@ router.post('/files/:id/transfer', requireAuth, async (req, res) => {
   if (!toDoctor) return res.status(404).json({ error: 'Recipient doctor not found' })
   if (toDoctor.id === req.doctorId) return res.status(400).json({ error: 'Cannot transfer a file to yourself' })
 
+  const { rows: fromDoctorRows } = await pool.query('SELECT name FROM doctors WHERE id = $1', [req.doctorId])
+  const fromDoctorName = fromDoctorRows[0]?.name || 'A colleague'
+
   const id = crypto.randomUUID()
   await pool.query(
     'INSERT INTO file_transfers (id, file_id, from_doctor_id, to_doctor_id, message) VALUES ($1, $2, $3, $4, $5)',
     [id, file.id, req.doctorId, toDoctor.id, message || ''],
+  )
+
+  await notify(
+    toDoctor.id,
+    'file_received',
+    `${fromDoctorName} sent you a patient file`,
+    `${file.patient_first_name} ${file.patient_last_name}${message ? ` — ${message}` : ''}`,
+    '/provider/dashboard',
   )
 
   const { rows } = await pool.query('SELECT * FROM file_transfers WHERE id = $1', [id])

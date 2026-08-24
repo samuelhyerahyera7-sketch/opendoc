@@ -4,7 +4,8 @@ import { Search } from 'lucide-react'
 import { api, ApiError, type Specialty } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import MedicalAidLogo from '../../components/MedicalAidBadge'
-import { saLocations } from '../../data/saLocations'
+import LocationAutocomplete from '../../components/LocationAutocomplete'
+import { findLocationByName } from '../../data/saLocations'
 
 export default function ProviderSignup() {
   const navigate = useNavigate()
@@ -42,7 +43,7 @@ export default function ProviderSignup() {
     setError(null)
     setSubmitting(true)
     try {
-      const area = saLocations.find((l) => l.name === form.city)
+      const area = findLocationByName(form.city)
       await register({
         ...form,
         lat: area?.lat,
@@ -161,17 +162,12 @@ export default function ProviderSignup() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink-700">Practice area</label>
-              <select
+              <LocationAutocomplete
                 required
                 value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-400"
-              >
-                <option value="" disabled>Select your area</option>
-                {saLocations.map((l) => (
-                  <option key={l.name} value={l.name}>{l.name}</option>
-                ))}
-              </select>
+                onChange={(name) => setForm({ ...form, city: name })}
+                placeholder="Search for your city or town…"
+              />
               <p className="mt-1.5 text-xs text-ink-400">Used to show your distance to nearby patients.</p>
             </div>
           </div>
