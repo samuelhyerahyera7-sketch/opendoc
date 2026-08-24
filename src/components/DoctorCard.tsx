@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { CalendarCheck2, MapPin, ShieldCheck } from 'lucide-react'
 import type { ApiDoctor } from '../api/client'
 import StarRating from './StarRating'
+import { MedicalAidPill } from './MedicalAidBadge'
+import { CASH_LABEL } from '../data/medicalAids'
 
 export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
   const nextSlot = doctor.slots[0]
@@ -33,15 +35,9 @@ export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
         )}
         {(doctor.insurances.length > 0 || doctor.acceptsCash) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {doctor.acceptsCash && (
-              <span className="rounded-full bg-accent-50 px-2.5 py-0.5 text-xs font-medium text-accent-600">
-                Cash / Self-pay
-              </span>
-            )}
+            {doctor.acceptsCash && <MedicalAidPill name={CASH_LABEL} />}
             {doctor.insurances.slice(0, 3).map((ins) => (
-              <span key={ins} className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
-                {ins}
-              </span>
+              <MedicalAidPill key={ins} name={ins} />
             ))}
             {doctor.insurances.length > 3 && (
               <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DoctorCard from '../components/DoctorCard'
+import MedicalAidSelect from '../components/MedicalAidSelect'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
 
 type SortKey = 'relevance' | 'rating'
@@ -66,16 +67,12 @@ export default function SearchResults() {
 
               <div className="mt-5">
                 <p className="mb-2 text-sm font-semibold text-ink-900">Medical aid / Insurance</p>
-                <select
+                <MedicalAidSelect
                   value={insuranceFilter}
-                  onChange={(e) => setInsuranceFilter(e.target.value)}
-                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
-                >
-                  <option value="">Any medical aid</option>
-                  {insurances.map((i) => (
-                    <option key={i} value={i}>{i}</option>
-                  ))}
-                </select>
+                  onChange={setInsuranceFilter}
+                  options={insurances}
+                  placeholder="Any medical aid"
+                />
                 <p className="mt-1.5 text-xs text-ink-400">Only show doctors who accept your plan.</p>
               </div>
 

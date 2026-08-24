@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api, ApiError, type Specialty } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
+import MedicalAidLogo from '../../components/MedicalAidBadge'
 
 export default function ProviderSignup() {
   const navigate = useNavigate()
@@ -177,12 +178,13 @@ export default function ProviderSignup() {
                   type="button"
                   key={ins}
                   onClick={() => toggleInsurance(ins)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold ${
                     selectedInsurances.includes(ins)
                       ? 'border-brand-500 bg-brand-50 text-brand-700'
                       : 'border-ink-200 text-ink-600 hover:border-brand-300'
                   }`}
                 >
+                  <MedicalAidLogo name={ins} size="sm" />
                   {ins}
                 </button>
               ))}
