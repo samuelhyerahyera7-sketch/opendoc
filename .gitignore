@@ -26,3 +26,8 @@ server/data
 *.sln
 *.sw?
 .env*
+
+# Claude Code local skill-install artifacts (not project source)
+.agents/
+.claude/
+skills-lock.json
