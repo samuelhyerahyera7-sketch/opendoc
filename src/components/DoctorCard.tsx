@@ -26,6 +26,11 @@ export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
         <div className="mt-2 flex items-center gap-1.5 text-sm text-ink-500">
           <MapPin size={14} />
           <span>{doctor.address}{doctor.city ? `, ${doctor.city}` : ''}</span>
+          {doctor.distanceKm !== null && (
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">
+              {doctor.distanceKm < 1 ? '<1 km away' : `${doctor.distanceKm} km away`}
+            </span>
+          )}
         </div>
         {doctor.acceptingNew && (
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-brand-600">

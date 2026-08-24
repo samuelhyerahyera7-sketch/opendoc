@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import { api, ApiError, type Specialty } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import MedicalAidLogo from '../../components/MedicalAidBadge'
+import { saLocations } from '../../data/saLocations'
 
 export default function ProviderSignup() {
   const navigate = useNavigate()
@@ -40,7 +41,14 @@ export default function ProviderSignup() {
     setError(null)
     setSubmitting(true)
     try {
-      await register({ ...form, insurances: selectedInsurances, acceptsCash })
+      const area = saLocations.find((l) => l.name === form.city)
+      await register({
+        ...form,
+        lat: area?.lat,
+        lng: area?.lng,
+        insurances: selectedInsurances,
+        acceptsCash,
+      })
       navigate('/provider/dashboard')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
@@ -137,12 +145,19 @@ export default function ProviderSignup() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink-700">City</label>
-              <input
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Practice area</label>
+              <select
+                required
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
-              />
+                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-400"
+              >
+                <option value="" disabled>Select your area</option>
+                {saLocations.map((l) => (
+                  <option key={l.name} value={l.name}>{l.name}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-ink-400">Used to show your distance to nearby patients.</p>
             </div>
           </div>
 

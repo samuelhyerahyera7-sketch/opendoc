@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import db from './db.mjs'
 import { hashPassword } from './auth.mjs'
+import { CITY_COORDS, jitterCoord } from './geo.mjs'
 
 export const specialtiesList = [
   { name: 'Primary Care', icon: '🩺' },
@@ -66,8 +67,8 @@ function seededRandom(seed) {
 
 const insertDoctor = db.prepare(`
   INSERT INTO doctors
-    (id, name, credentials, specialty, email, password_hash, photo, address, city, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
-  VALUES (@id, @name, @credentials, @specialty, @email, @password_hash, @photo, @address, @city, @bio, @education, @languages, @accepting_new, @accepts_cash, @rating, @review_count)
+    (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
+  VALUES (@id, @name, @credentials, @specialty, @email, @password_hash, @photo, @address, @city, @lat, @lng, @bio, @education, @languages, @accepting_new, @accepts_cash, @rating, @review_count)
 `)
 const insertInsurance = db.prepare('INSERT OR IGNORE INTO doctor_insurances (doctor_id, insurance) VALUES (?, ?)')
 const insertSlot = db.prepare('INSERT INTO doctor_slots (doctor_id, day_label, time_label) VALUES (?, ?, ?)')
@@ -90,6 +91,8 @@ export function seedIfEmpty() {
         const id = crypto.randomUUID()
         const rating = Math.round((4 + rand() * 1) * 10) / 10
         const reviewCount = Math.floor(20 + rand() * 480)
+        const city = cities[idx % cities.length]
+        const coord = jitterCoord(CITY_COORDS[city], 6, rand)
 
         insertDoctor.run({
           id,
@@ -100,7 +103,9 @@ export function seedIfEmpty() {
           password_hash: hashPassword('demopassword'),
           photo: `https://i.pravatar.cc/300?img=${(idx % 70) + 1}`,
           address: `${100 + idx * 3} ${['Rivonia Rd', 'Main Rd', 'Church St', 'Long St', 'Florida Rd'][idx % 5]}, Suite ${(idx % 9) + 1}0${idx % 3}`,
-          city: cities[idx % cities.length],
+          city,
+          lat: coord.lat,
+          lng: coord.lng,
           bio: bios[idx % bios.length].replace('{name}', last),
           education: JSON.stringify([
             ['University of Cape Town Faculty of Health Sciences', 'University of the Witwatersrand', 'Stellenbosch University Faculty of Medicine and Health Sciences'][idx % 3],

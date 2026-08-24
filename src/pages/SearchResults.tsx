@@ -6,16 +6,24 @@ import DoctorCard from '../components/DoctorCard'
 import MedicalAidSelect from '../components/MedicalAidSelect'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
 
-type SortKey = 'relevance' | 'rating'
+type SortKey = 'relevance' | 'rating' | 'distance'
+
+const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
 
 export default function SearchResults() {
   const [params] = useSearchParams()
   const q = params.get('q') ?? ''
   const loc = params.get('loc') ?? ''
+  const latParam = params.get('lat')
+  const lngParam = params.get('lng')
+  const lat = latParam ? parseFloat(latParam) : undefined
+  const lng = lngParam ? parseFloat(lngParam) : undefined
+  const hasLocation = lat !== undefined && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng)
 
-  const [sort, setSort] = useState<SortKey>('relevance')
+  const [sort, setSort] = useState<SortKey>(hasLocation ? 'distance' : 'relevance')
   const [insuranceFilter, setInsuranceFilter] = useState<string>('')
   const [acceptingOnly, setAcceptingOnly] = useState(false)
+  const [radiusKm, setRadiusKm] = useState(25)
 
   const [insurances, setInsurances] = useState<string[]>([])
   const [specialties, setSpecialties] = useState<Specialty[]>([])
@@ -29,20 +37,32 @@ export default function SearchResults() {
   }, [])
 
   useEffect(() => {
+    setSort(hasLocation ? 'distance' : 'relevance')
+  }, [latParam, lngParam, hasLocation])
+
+  useEffect(() => {
     setLoading(true)
     setError(null)
     api
-      .searchDoctors({ q, insurance: insuranceFilter, acceptingOnly, sort })
+      .searchDoctors({
+        q,
+        insurance: insuranceFilter,
+        acceptingOnly,
+        sort,
+        lat: hasLocation ? lat : undefined,
+        lng: hasLocation ? lng : undefined,
+        radiusKm: hasLocation ? radiusKm : undefined,
+      })
       .then(setResults)
       .catch(() => setError('Could not load doctors right now. Please try again.'))
       .finally(() => setLoading(false))
-  }, [q, insuranceFilter, acceptingOnly, sort])
+  }, [q, insuranceFilter, acceptingOnly, sort, hasLocation, lat, lng, radiusKm])
 
   return (
     <div className="bg-ink-50/60">
       <div className="border-b border-ink-100 bg-white py-6">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SearchBar initialQuery={q} initialLocation={loc} />
+          <SearchBar initialQuery={q} initialLocation={loc} initialLat={lat} initialLng={lng} />
         </div>
       </div>
 
@@ -64,6 +84,22 @@ export default function SearchResults() {
                 />
                 Accepting new patients
               </label>
+
+              {hasLocation && (
+                <div className="mt-5">
+                  <p className="mb-2 text-sm font-semibold text-ink-900">Distance</p>
+                  <select
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Number(e.target.value))}
+                    className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
+                  >
+                    {RADIUS_OPTIONS.map((r) => (
+                      <option key={r} value={r}>Within {r} km</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs text-ink-400">Based on {loc || 'your location'}.</p>
+                </div>
+              )}
 
               <div className="mt-5">
                 <p className="mb-2 text-sm font-semibold text-ink-900">Medical aid / Insurance</p>
@@ -106,6 +142,7 @@ export default function SearchResults() {
               >
                 <option value="relevance">Sort: Relevance</option>
                 <option value="rating">Sort: Highest Rated</option>
+                {hasLocation && <option value="distance">Sort: Nearest</option>}
               </select>
             </div>
 
@@ -118,7 +155,11 @@ export default function SearchResults() {
             {!error && !loading && results.length === 0 && (
               <div className="rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center">
                 <p className="text-lg font-semibold text-ink-800">No doctors found</p>
-                <p className="mt-1 text-sm text-ink-500">Try a different specialty, name, medical aid, or location.</p>
+                <p className="mt-1 text-sm text-ink-500">
+                  {hasLocation
+                    ? 'Try widening your distance filter, or a different specialty or medical aid.'
+                    : 'Try a different specialty, name, medical aid, or location.'}
+                </p>
               </div>
             )}
 

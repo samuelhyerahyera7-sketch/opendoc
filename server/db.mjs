@@ -25,6 +25,8 @@ db.exec(`
     photo TEXT,
     address TEXT,
     city TEXT,
+    lat REAL,
+    lng REAL,
     bio TEXT,
     education TEXT,
     languages TEXT,

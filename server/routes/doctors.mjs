@@ -4,6 +4,7 @@ import db from '../db.mjs'
 import { hashPassword, verifyPassword, createSession, requireAuth } from '../auth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
 import { specialtiesList, insurancesList, medicalAidsList, CASH_OPTION } from '../seed.mjs'
+import { haversineKm } from '../geo.mjs'
 
 const router = Router()
 
@@ -41,7 +42,11 @@ router.get('/insurances/stats', (req, res) => {
 })
 
 router.get('/doctors', (req, res) => {
-  const { q = '', insurance = '', specialty = '', acceptingOnly, sort = 'relevance' } = req.query
+  const { q = '', insurance = '', specialty = '', acceptingOnly, sort = 'relevance', lat, lng, radiusKm } = req.query
+  const userLat = lat !== undefined ? parseFloat(lat) : null
+  const userLng = lng !== undefined ? parseFloat(lng) : null
+  const hasLocation = userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)
+  const radius = radiusKm !== undefined ? parseFloat(radiusKm) : null
 
   let rows = db.prepare('SELECT * FROM doctors').all()
 
@@ -72,9 +77,25 @@ router.get('/doctors', (req, res) => {
     rows = rows.filter((d) => d.accepting_new)
   }
 
-  let doctors = rows.map((r) => serializeDoctor(r))
+  let doctors
+  if (hasLocation) {
+    doctors = rows
+      .filter((d) => d.lat !== null && d.lng !== null)
+      .map((d) => {
+        const distanceKm = haversineKm(userLat, userLng, d.lat, d.lng)
+        return { row: d, distanceKm }
+      })
+      .filter((d) => !radius || d.distanceKm <= radius)
+      .map((d) => serializeDoctor(d.row, { distanceKm: d.distanceKm }))
+  } else {
+    doctors = rows.map((r) => serializeDoctor(r))
+  }
 
-  if (sort === 'rating') doctors = doctors.sort((a, b) => b.rating - a.rating)
+  if (sort === 'rating') {
+    doctors.sort((a, b) => b.rating - a.rating)
+  } else if (sort === 'distance' || (hasLocation && sort === 'relevance')) {
+    doctors.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+  }
 
   res.json(doctors)
 })
@@ -86,14 +107,18 @@ router.get('/doctors/me', requireAuth, (req, res) => {
 })
 
 router.patch('/doctors/me', requireAuth, (req, res) => {
-  const { bio, address, city, acceptingNew, acceptsCash, insurances } = req.body
+  const { bio, address, city, lat, lng, acceptingNew, acceptsCash, insurances } = req.body
 
   db.prepare(
-    'UPDATE doctors SET bio = COALESCE(?, bio), address = COALESCE(?, address), city = COALESCE(?, city), accepting_new = COALESCE(?, accepting_new), accepts_cash = COALESCE(?, accepts_cash) WHERE id = ?',
+    `UPDATE doctors SET bio = COALESCE(?, bio), address = COALESCE(?, address), city = COALESCE(?, city),
+       lat = COALESCE(?, lat), lng = COALESCE(?, lng),
+       accepting_new = COALESCE(?, accepting_new), accepts_cash = COALESCE(?, accepts_cash) WHERE id = ?`,
   ).run(
     bio ?? null,
     address ?? null,
     city ?? null,
+    typeof lat === 'number' ? lat : null,
+    typeof lng === 'number' ? lng : null,
     acceptingNew === undefined ? null : acceptingNew ? 1 : 0,
     acceptsCash === undefined ? null : acceptsCash ? 1 : 0,
     req.doctorId,
@@ -128,7 +153,7 @@ router.get('/doctors/:id', (req, res) => {
 })
 
 router.post('/doctors/register', (req, res) => {
-  const { name, credentials, specialty, email, password, address, city, bio, insurances, acceptsCash } = req.body
+  const { name, credentials, specialty, email, password, address, city, lat, lng, bio, insurances, acceptsCash } = req.body
 
   if (!name || !specialty || !email || !password) {
     return res.status(400).json({ error: 'name, specialty, email, and password are required' })
@@ -142,8 +167,8 @@ router.post('/doctors/register', (req, res) => {
 
   const id = crypto.randomUUID()
   db.prepare(
-    `INSERT INTO doctors (id, name, credentials, specialty, email, password_hash, photo, address, city, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 5.0, 0)`,
+    `INSERT INTO doctors (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 5.0, 0)`,
   ).run(
     id,
     name,
@@ -154,6 +179,8 @@ router.post('/doctors/register', (req, res) => {
     `https://i.pravatar.cc/300?u=${id}`,
     address || '',
     city || '',
+    typeof lat === 'number' ? lat : null,
+    typeof lng === 'number' ? lng : null,
     bio || '',
     JSON.stringify([]),
     JSON.stringify(['English']),

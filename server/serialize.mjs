@@ -1,6 +1,6 @@
 import db from './db.mjs'
 
-export function serializeDoctor(row, { includePrivate = false } = {}) {
+export function serializeDoctor(row, { includePrivate = false, distanceKm = null } = {}) {
   const insurances = db
     .prepare('SELECT insurance FROM doctor_insurances WHERE doctor_id = ? ORDER BY insurance')
     .all(row.id)
@@ -18,6 +18,9 @@ export function serializeDoctor(row, { includePrivate = false } = {}) {
     photo: row.photo,
     address: row.address,
     city: row.city,
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
+    distanceKm: distanceKm === null ? null : Math.round(distanceKm * 10) / 10,
     bio: row.bio,
     education: row.education ? JSON.parse(row.education) : [],
     languages: row.languages ? JSON.parse(row.languages) : [],

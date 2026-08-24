@@ -10,6 +10,9 @@ export type ApiDoctor = {
   photo: string
   address: string
   city: string
+  lat: number | null
+  lng: number | null
+  distanceKm: number | null
   bio: string
   education: string[]
   languages: string[]
@@ -110,13 +113,25 @@ export const api = {
   getMedicalAids: () => request<string[]>('/medical-aids'),
   getInsuranceStats: () => request<InsuranceStat[]>('/insurances/stats'),
 
-  searchDoctors: (params: { q?: string; insurance?: string; specialty?: string; acceptingOnly?: boolean; sort?: string }) => {
+  searchDoctors: (params: {
+    q?: string
+    insurance?: string
+    specialty?: string
+    acceptingOnly?: boolean
+    sort?: string
+    lat?: number
+    lng?: number
+    radiusKm?: number
+  }) => {
     const search = new URLSearchParams()
     if (params.q) search.set('q', params.q)
     if (params.insurance) search.set('insurance', params.insurance)
     if (params.specialty) search.set('specialty', params.specialty)
     if (params.acceptingOnly) search.set('acceptingOnly', 'true')
     if (params.sort) search.set('sort', params.sort)
+    if (params.lat !== undefined) search.set('lat', String(params.lat))
+    if (params.lng !== undefined) search.set('lng', String(params.lng))
+    if (params.radiusKm !== undefined) search.set('radiusKm', String(params.radiusKm))
     return request<ApiDoctor[]>(`/doctors?${search.toString()}`)
   },
 
@@ -130,6 +145,8 @@ export const api = {
     password: string
     address?: string
     city?: string
+    lat?: number
+    lng?: number
     bio?: string
     insurances?: string[]
     acceptsCash?: boolean
@@ -149,7 +166,16 @@ export const api = {
 
   updateMyProfile: (
     token: string,
-    payload: Partial<{ bio: string; address: string; city: string; acceptingNew: boolean; acceptsCash: boolean; insurances: string[] }>,
+    payload: Partial<{
+      bio: string
+      address: string
+      city: string
+      lat: number
+      lng: number
+      acceptingNew: boolean
+      acceptsCash: boolean
+      insurances: string[]
+    }>,
   ) =>
     request<ApiDoctor>('/doctors/me', {
       method: 'PATCH',
