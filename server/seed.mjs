@@ -57,6 +57,23 @@ const bios = [
   'Board-certified and highly reviewed, Dr. {name} focuses on clear communication and modern, minimally invasive techniques.',
 ]
 
+const reviewerNames = [
+  'Thabo M.', 'Nomsa D.', 'Werner P.', 'Fatima K.', 'Sipho N.', 'Annelie B.',
+  'Katlego S.', 'Ronel V.', 'Lindiwe Z.', 'Pieter J.', 'Zanele T.', 'Riaan C.',
+  'Palesa R.', 'Hendrik O.', 'Bongani F.', 'Chantal L.',
+]
+
+const reviewComments = [
+  'Very thorough and took the time to answer all of my questions.',
+  'Front desk was friendly and the wait was short. Would recommend.',
+  'Professional and explained everything clearly before proceeding.',
+  'My medical aid claim went through without any hassle.',
+  'Got an appointment the same week, which I did not expect.',
+  'Good bedside manner and did not feel rushed at all.',
+  'Consultation room was clean and the whole visit felt organised.',
+  'Explained the treatment plan in plain language, which I appreciated.',
+]
+
 function seededRandom(seed) {
   let s = seed
   return () => {
@@ -83,8 +100,6 @@ export async function seedIfEmpty() {
         const [first, last] = names[idx % names.length]
         idx++
         const id = crypto.randomUUID()
-        const rating = Math.round((4 + rand() * 1) * 10) / 10
-        const reviewCount = Math.floor(20 + rand() * 480)
         const city = cities[idx % cities.length]
         const coord = jitterCoord(CITY_COORDS[city], 6, rand)
         const credentials =
@@ -96,10 +111,18 @@ export async function seedIfEmpty() {
         const extraLang = ['Afrikaans', 'isiZulu', 'isiXhosa', 'Sesotho'][idx % 4]
         const languages = rand() > 0.4 ? ['English', extraLang] : ['English']
 
+        // Plausible-looking HPCSA-style registration number for demo doctors.
+        // Real HPCSA numbers aren't verifiable through a public API, so these
+        // seeded doctors are marked "verified" as pre-approved directory
+        // listings — anyone who registers for real starts at "pending"
+        // until an admin reviews their actual number (see /admin).
+        const hpcsaPrefix = spec.name === 'Dentist' ? 'DE' : spec.name === 'Physical Therapist' ? 'PT' : spec.name === 'Psychiatrist' || spec.name === 'Primary Care' ? 'MP' : 'MP'
+        const hpcsaNumber = `${hpcsaPrefix}${100000 + idx * 37}`
+
         await client.query(
           `INSERT INTO doctors
-            (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+            (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, hpcsa_number, verification_status, email_verified)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'verified',TRUE)`,
           [
             id,
             `${first} ${last}`,
@@ -108,7 +131,7 @@ export async function seedIfEmpty() {
             `${first}.${last}${idx}@opendoc-demo.com`.toLowerCase(),
             hashPassword('demopassword'),
             `https://i.pravatar.cc/300?img=${(idx % 70) + 1}`,
-            `${100 + idx * 3} ${['Rivonia Rd', 'Main Rd', 'Church St', 'Long St', 'Florida Rd'][idx % 5]}, Suite ${(idx % 9) + 1}0${idx % 3}`,
+            `${100 + idx * 3} ${['Rivonia Rd', 'Main Rd', 'Church St', 'Long St', 'Florida Rd'][idx % 5]}, Unit ${(idx % 9) + 1}0${idx % 3}`,
             city,
             coord.lat,
             coord.lng,
@@ -117,10 +140,39 @@ export async function seedIfEmpty() {
             JSON.stringify(languages),
             rand() > 0.2,
             rand() > 0.1,
-            rating,
-            reviewCount,
+            hpcsaNumber,
           ],
         )
+
+        // A handful of real reviews per doctor (varied reviewer/comment per
+        // doctor, not the same three names repeated everywhere) anchored to
+        // synthetic completed appointments, so doctors.rating/review_count
+        // below is a true aggregate rather than a fabricated number.
+        const reviewTotal = 3 + Math.floor(rand() * 5)
+        let ratingSum = 0
+        for (let r = 0; r < reviewTotal; r++) {
+          const apptId = crypto.randomUUID()
+          const reviewerIdx = Math.floor(rand() * reviewerNames.length)
+          const reviewer = reviewerNames[(reviewerIdx + r) % reviewerNames.length]
+          const comment = reviewComments[Math.floor(rand() * reviewComments.length)]
+          const stars = rand() > 0.15 ? 5 : 4
+          ratingSum += stars
+          await client.query(
+            `INSERT INTO appointments
+              (id, doctor_id, patient_first_name, patient_last_name, patient_email, patient_phone, day_label, time_label, status)
+             VALUES ($1,$2,$3,$4,$5,$6,'Past','—','completed')`,
+            [apptId, id, reviewer.split(' ')[0], reviewer.split(' ')[1] || '', 'demo@opendoc-demo.com', '000', ],
+          )
+          await client.query(
+            'INSERT INTO reviews (id, appointment_id, doctor_id, patient_name, rating, comment) VALUES ($1,$2,$3,$4,$5,$6)',
+            [crypto.randomUUID(), apptId, id, reviewer, stars, comment],
+          )
+        }
+        await client.query('UPDATE doctors SET rating = $1, review_count = $2 WHERE id = $3', [
+          Math.round((ratingSum / reviewTotal) * 10) / 10,
+          reviewTotal,
+          id,
+        ])
 
         for (const ins of medicalAidsList) {
           if (rand() > 0.55) {

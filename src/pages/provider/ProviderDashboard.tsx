@@ -5,6 +5,7 @@ import {
   FileUp,
   Inbox,
   LogOut,
+  Mail,
   Send,
   Trash2,
   Download,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import { api, ApiError, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
+import VerificationBadge from '../../components/VerificationBadge'
 
 type Tab = 'appointments' | 'schedule' | 'files'
 
@@ -36,7 +38,10 @@ export default function ProviderDashboard() {
           <div className="flex items-center gap-4">
             <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
             <div>
-              <h1 className="text-xl font-bold text-ink-900">{doctor.name}, {doctor.credentials}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold text-ink-900">{doctor.name}, {doctor.credentials}</h1>
+                <VerificationBadge status={doctor.verificationStatus} />
+              </div>
               <p className="text-sm text-brand-600">{doctor.specialty} &middot; {doctor.city || 'No city set'}</p>
             </div>
           </div>
@@ -50,6 +55,13 @@ export default function ProviderDashboard() {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        {doctor.verificationStatus === 'pending' && (
+          <div className="mb-6 rounded-xl bg-ink-100 px-4 py-3 text-sm text-ink-700">
+            Your listing is live, but marked "verification pending" until an OpenDoc reviewer confirms your HPCSA number.
+          </div>
+        )}
+        {token && !doctor.emailVerified && <EmailVerificationBanner token={token} />}
+
         <div className="mb-6 flex gap-2 overflow-x-auto">
           <TabButton active={tab === 'appointments'} onClick={() => setTab('appointments')} icon={CalendarDays}>
             Appointments
@@ -525,6 +537,35 @@ function FileRow({
             </div>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+function EmailVerificationBanner({ token }: { token: string }) {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
+
+  async function resend() {
+    setStatus('sending')
+    try {
+      await api.resendVerification(token)
+      setStatus('sent')
+    } catch {
+      setStatus('idle')
+    }
+  }
+
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-accent-50 px-4 py-3 text-sm text-accent-700">
+      <span className="flex items-center gap-2">
+        <Mail size={15} /> Please verify your email address.
+      </span>
+      {status === 'sent' ? (
+        <span className="font-semibold">Verification email sent — check your inbox.</span>
+      ) : (
+        <button onClick={resend} disabled={status === 'sending'} className="font-semibold underline disabled:opacity-60">
+          {status === 'sending' ? 'Sending…' : 'Resend verification email'}
+        </button>
       )}
     </div>
   )

@@ -12,7 +12,7 @@ export default function Booking() {
   const time = params.get('time') ?? ''
 
   const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+  const [confirmedAppointment, setConfirmedAppointment] = useState<{ emailSent: boolean; reviewToken: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', reason: '', newPatient: true })
@@ -37,7 +37,7 @@ export default function Booking() {
     setSubmitting(true)
     setError(null)
     try {
-      await api.bookAppointment({
+      const appointment = await api.bookAppointment({
         doctorId: id!,
         slotId: Number(slotId),
         firstName: form.firstName,
@@ -47,7 +47,7 @@ export default function Booking() {
         reason: form.reason,
         newPatient: form.newPatient,
       })
-      setSubmitted(true)
+      setConfirmedAppointment({ emailSent: appointment.emailSent, reviewToken: appointment.review_token })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     } finally {
@@ -55,7 +55,7 @@ export default function Booking() {
     }
   }
 
-  if (submitted) {
+  if (confirmedAppointment) {
     return (
       <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center px-4 py-20 text-center">
         <div className="grid h-16 w-16 place-items-center rounded-full bg-brand-50">
@@ -66,7 +66,17 @@ export default function Booking() {
           You're booked with <span className="font-semibold">{doctor.name}, {doctor.credentials}</span> on{' '}
           <span className="font-semibold">{day}</span> at <span className="font-semibold">{time}</span>.
         </p>
-        <p className="mt-1 text-sm text-ink-500">A confirmation was sent to {form.email || 'your email'}.</p>
+        <p className="mt-1 text-sm text-ink-500">
+          {confirmedAppointment.emailSent
+            ? `A confirmation was sent to ${form.email}.`
+            : 'Save these details — email confirmations are not enabled on this deployment yet.'}
+        </p>
+        <Link
+          to={`/review/${confirmedAppointment.reviewToken}`}
+          className="mt-3 text-sm font-medium text-brand-600 underline decoration-brand-300 underline-offset-4"
+        >
+          Bookmark this link to leave a review after your visit
+        </Link>
         <div className="mt-8 flex gap-3">
           <Link to="/" className="rounded-full border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50">
             Back to home

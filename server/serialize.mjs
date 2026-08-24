@@ -27,12 +27,15 @@ export async function serializeDoctor(row, { includePrivate = false, distanceKm 
     acceptsCash: !!row.accepts_cash,
     rating: row.rating,
     reviewCount: row.review_count,
+    verificationStatus: row.verification_status || 'pending',
     insurances: insurancesResult.rows.map((r) => r.insurance),
     slots: slotsResult.rows.map((s) => ({ id: s.id, day: s.day_label, time: s.time_label })),
   }
 
   if (includePrivate) {
     out.email = row.email
+    out.hpcsaNumber = row.hpcsa_number
+    out.emailVerified = !!row.email_verified
   }
 
   return out

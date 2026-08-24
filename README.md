@@ -37,11 +37,25 @@ No manual migration step is needed — the API creates its schema and seeds demo
 
 ## Key flows
 
-- **Patients:** search `/search?q=...` (filterable by specialty, medical aid/cash, distance, "accepting new patients"), or start from `/medical-aid` to browse by scheme (e.g. `/medical-aid/discovery-health-medical-scheme`). View a doctor's profile, pick an open time slot, and book — no account required. "Use my location" (or typing a known SA city/suburb) sorts and filters results by real distance.
-- **Doctors:** register at `/provider/signup` to appear in search immediately, then manage things from `/provider/dashboard`:
+- **Patients:** search `/search?q=...` (filterable by specialty, medical aid/cash, distance, "accepting new patients"), or start from `/medical-aid` to browse by scheme (e.g. `/medical-aid/discovery-health-medical-scheme`). View a doctor's profile, pick an open time slot, and book — no account required. "Use my location" (or typing a known SA city/suburb) sorts and filters results by real distance. After a visit, a per-appointment link (shown on the confirmation page, and emailed if configured) lets the patient leave a real review — no login needed.
+- **Doctors:** register at `/provider/signup` with an HPCSA registration number to appear in search immediately (marked "verification pending" until reviewed), then manage things from `/provider/dashboard`:
   - **Appointments** — see everyone who has booked with you.
   - **Schedule** — publish/remove open time slots patients can book.
   - **Patient Files** — upload a file for a patient and transfer it to another doctor on the platform (searchable by name/email); the receiving doctor sees it under "Received from other doctors" and can download it.
+- **Admin:** `/admin`, gated by the `ADMIN_TOKEN` env var, lists doctors pending HPCSA verification with Verify/Reject actions. Without `ADMIN_TOKEN` set, admin endpoints return 503 rather than being open.
+
+## Email
+
+Booking confirmations, new-booking alerts to doctors, provider email verification, and password reset all go through `server/email.mjs` (Resend). Without `RESEND_API_KEY` set, nothing is actually sent — the app logs what it would have sent and tells the frontend the truth (`emailSent: false`), so the UI never claims to have emailed someone when it didn't.
+
+## What's still out of scope
+
+This covers the core product and the most important trust/safety and security gaps, but a few things need either a paid third-party account this repo doesn't have, or are large enough to be their own follow-up:
+
+- **Real HPCSA/medical-aid-eligibility verification.** The `/admin` review flow is a manual human check against the number a doctor types in — there's no live API integration with HPCSA or with medical aid schemes (Medikredit, HealthBridge, etc.), which requires a business agreement per provider.
+- **Session storage.** Doctor sessions are still a bearer token in `localStorage`, not an httpOnly cookie — acceptable short-term, but a target for XSS. Migrating requires touching every authenticated API call.
+- **Appointment cancel/reschedule**, calendar sync, and a CI pipeline are not implemented.
+- **Malware scanning** on uploaded patient files and dedicated error monitoring (Sentry or similar) are not wired up.
 
 ## Scripts
 

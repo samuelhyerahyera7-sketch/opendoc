@@ -37,8 +37,15 @@ export async function initSchema() {
       accepts_cash BOOLEAN DEFAULT TRUE,
       rating REAL DEFAULT 5.0,
       review_count INTEGER DEFAULT 0,
+      hpcsa_number TEXT,
+      verification_status TEXT DEFAULT 'pending',
+      email_verified BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    ALTER TABLE doctors ADD COLUMN IF NOT EXISTS hpcsa_number TEXT;
+    ALTER TABLE doctors ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending';
+    ALTER TABLE doctors ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS doctor_insurances (
       doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
@@ -74,8 +81,11 @@ export async function initSchema() {
       day_label TEXT NOT NULL,
       time_label TEXT NOT NULL,
       status TEXT DEFAULT 'confirmed',
+      review_token TEXT UNIQUE,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS review_token TEXT UNIQUE;
 
     CREATE TABLE IF NOT EXISTS patient_files (
       id TEXT PRIMARY KEY,
@@ -100,6 +110,27 @@ export async function initSchema() {
       message TEXT,
       status TEXT DEFAULT 'sent',
       created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- One review per appointment, left by the patient after their visit.
+    -- Real, doctor-specific reviews replace the old hardcoded sample text.
+    CREATE TABLE IF NOT EXISTS reviews (
+      id TEXT PRIMARY KEY,
+      appointment_id TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      patient_name TEXT NOT NULL,
+      rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    -- Single-use tokens for email verification and password reset.
+    CREATE TABLE IF NOT EXISTS action_tokens (
+      token TEXT PRIMARY KEY,
+      doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ
     );
   `)
 }

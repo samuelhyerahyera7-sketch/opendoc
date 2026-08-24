@@ -4,6 +4,7 @@ import type { ApiDoctor } from '../api/client'
 import StarRating from './StarRating'
 import { MedicalAidPill } from './MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
+import VerificationBadge from './VerificationBadge'
 
 export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
   const nextSlot = doctor.slots[0]
@@ -16,9 +17,12 @@ export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
         className="h-24 w-24 shrink-0 self-center rounded-xl object-cover sm:self-start"
       />
       <div className="flex-1">
-        <Link to={`/doctor/${doctor.id}`} className="text-lg font-bold text-ink-900 hover:text-brand-600">
-          {doctor.name}, {doctor.credentials}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/doctor/${doctor.id}`} className="text-lg font-bold text-ink-900 hover:text-brand-600">
+            {doctor.name}, {doctor.credentials}
+          </Link>
+          {doctor.verificationStatus !== 'verified' && <VerificationBadge status={doctor.verificationStatus} />}
+        </div>
         <p className="text-sm font-medium text-brand-600">{doctor.specialty}</p>
         <div className="mt-1.5">
           <StarRating rating={doctor.rating} count={doctor.reviewCount} />

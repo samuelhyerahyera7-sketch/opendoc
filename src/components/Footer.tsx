@@ -47,16 +47,14 @@ export default function Footer() {
             <h4 className="mb-4 text-sm font-semibold text-white">For Providers</h4>
             <ul className="space-y-2.5 text-sm">
               <li><Link to="/for-providers" className="hover:text-white">List Your Practice</Link></li>
-              <li><a href="#" className="hover:text-white">Practice Resources</a></li>
-              <li><a href="#" className="hover:text-white">Provider Login</a></li>
+              <li><Link to="/provider/login" className="hover:text-white">Provider Login</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="mb-4 text-sm font-semibold text-white">Support</h4>
             <ul className="space-y-2.5 text-sm">
-              <li><a href="#" className="hover:text-white">Help Center</a></li>
-              <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white">Terms of Service</a></li>
+              <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-white">Terms of Service</Link></li>
             </ul>
           </div>
         </div>

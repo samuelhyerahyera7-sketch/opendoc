@@ -20,6 +20,7 @@ export default function ProviderSignup() {
     specialty: '',
     email: '',
     password: '',
+    hpcsaNumber: '',
     address: '',
     city: '',
     bio: '',
@@ -108,6 +109,20 @@ export default function ProviderSignup() {
                 <option key={s.name} value={s.name}>{s.name}</option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-700">HPCSA registration number</label>
+            <input
+              required
+              value={form.hpcsaNumber}
+              onChange={(e) => setForm({ ...form, hpcsaNumber: e.target.value })}
+              className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
+              placeholder="e.g. MP1234567"
+            />
+            <p className="mt-1.5 text-xs text-ink-400">
+              Your listing appears immediately but is marked "verification pending" until an OpenDoc reviewer confirms your HPCSA number.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

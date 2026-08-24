@@ -5,6 +5,7 @@ import { seedIfEmpty } from './seed.mjs'
 import doctorsRouter from './routes/doctors.mjs'
 import appointmentsRouter from './routes/appointments.mjs'
 import filesRouter from './routes/files.mjs'
+import adminRouter from './routes/admin.mjs'
 
 // Schema creation + demo seeding only need to happen once per running
 // instance. In serverless, that's once per cold start (memoized here);
@@ -33,6 +34,7 @@ app.use(async (req, res, next) => {
 app.use('/api', doctorsRouter)
 app.use('/api', appointmentsRouter)
 app.use('/api', filesRouter)
+app.use('/api', adminRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

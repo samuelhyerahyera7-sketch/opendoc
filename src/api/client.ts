@@ -20,10 +20,15 @@ export type ApiDoctor = {
   acceptsCash: boolean
   rating: number
   reviewCount: number
+  verificationStatus: 'pending' | 'verified' | 'rejected'
   insurances: string[]
   slots: { id: number; day: string; time: string }[]
   email?: string
+  hpcsaNumber?: string
+  emailVerified?: boolean
 }
+
+export type Review = { patient_name: string; rating: number; comment: string; created_at: string }
 
 export type Appointment = {
   id: string
@@ -38,6 +43,7 @@ export type Appointment = {
   day_label: string
   time_label: string
   status: string
+  review_token: string
   created_at: string
 }
 
@@ -142,6 +148,7 @@ export const api = {
     specialty: string
     email: string
     password: string
+    hpcsaNumber: string
     address?: string
     city?: string
     lat?: number
@@ -191,7 +198,7 @@ export const api = {
     phone: string
     reason?: string
     newPatient?: boolean
-  }) => request<Appointment>('/appointments', { method: 'POST', body: JSON.stringify(payload) }),
+  }) => request<Appointment & { emailSent: boolean }>('/appointments', { method: 'POST', body: JSON.stringify(payload) }),
 
   getMyAppointments: (token: string) => request<Appointment[]>('/doctors/me/appointments', { headers: authHeaders(token) }),
 
@@ -223,6 +230,36 @@ export const api = {
     request<DirectoryDoctor[]>(`/doctors/directory/search?q=${encodeURIComponent(q)}`, { headers: authHeaders(token) }),
 
   downloadFileUrl: (fileId: string) => `/api/files/${fileId}/download`,
+
+  getDoctorReviews: (doctorId: string) => request<Review[]>(`/doctors/${doctorId}/reviews`),
+
+  getReviewTarget: (token: string) =>
+    request<{ doctorId: string; doctorName: string; patientFirstName: string; alreadyReviewed: boolean }>(`/appointments/review/${token}`),
+
+  submitReview: (token: string, rating: number, comment: string) =>
+    request<{ ok: true }>(`/appointments/review/${token}`, { method: 'POST', body: JSON.stringify({ rating, comment }) }),
+
+  verifyEmail: (token: string) => request<{ ok: true }>(`/doctors/verify-email?token=${encodeURIComponent(token)}`),
+
+  resendVerification: (authToken: string) =>
+    request<{ ok: true; emailSent?: boolean; alreadyVerified?: boolean }>('/doctors/resend-verification', {
+      method: 'POST',
+      headers: authHeaders(authToken),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ ok: true }>('/doctors/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ ok: true }>('/doctors/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
+
+  admin: {
+    getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),
+    verifyDoctor: (adminToken: string, doctorId: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/verify`, { method: 'POST', headers: authHeaders(adminToken) }),
+    rejectDoctor: (adminToken: string, doctorId: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/reject`, { method: 'POST', headers: authHeaders(adminToken) }),
+  },
 }
 
 export { ApiError }

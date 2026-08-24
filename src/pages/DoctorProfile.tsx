@@ -1,21 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarDays, GraduationCap, Languages, MapPin, ShieldCheck } from 'lucide-react'
-import { api, type ApiDoctor } from '../api/client'
+import { api, type ApiDoctor, type Review } from '../api/client'
 import StarRating from '../components/StarRating'
 import { MedicalAidPill } from '../components/MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
-
-const reviewSamples = [
-  { name: 'Jordan P.', text: 'Very thorough and took the time to answer all of my questions. Highly recommend.', rating: 5 },
-  { name: 'Casey M.', text: 'Front desk was friendly and the wait was short. Great overall experience.', rating: 5 },
-  { name: 'Alex R.', text: 'Professional and knowledgeable. Explained everything clearly before proceeding.', rating: 4 },
-]
+import VerificationBadge from '../components/VerificationBadge'
 
 export default function DoctorProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
   const [notFound, setNotFound] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ id: number; time: string } | null>(null)
@@ -30,6 +26,7 @@ export default function DoctorProfile() {
         setSelectedDay(firstDay)
       })
       .catch(() => setNotFound(true))
+    api.getDoctorReviews(id).then(setReviews).catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -68,11 +65,14 @@ export default function DoctorProfile() {
                 <MapPin size={15} />
                 {doctor.address}{doctor.city ? `, ${doctor.city}` : ''}
               </div>
-              {doctor.acceptingNew && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
-                  <ShieldCheck size={14} /> Accepting new patients
-                </div>
-              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {doctor.acceptingNew && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
+                    <ShieldCheck size={14} /> Accepting new patients
+                  </div>
+                )}
+                <VerificationBadge status={doctor.verificationStatus} />
+              </div>
             </div>
           </div>
         </div>
@@ -115,6 +115,7 @@ export default function DoctorProfile() {
                     <MedicalAidPill key={i} name={i} />
                   ))}
                 </div>
+                <p className="mt-2 text-xs text-ink-400">Self-reported by this provider — confirm coverage with your scheme before your visit.</p>
               </div>
             </section>
 
@@ -123,17 +124,21 @@ export default function DoctorProfile() {
                 <h2 className="text-lg font-bold text-ink-900">Patient reviews</h2>
                 <StarRating rating={doctor.rating} count={doctor.reviewCount} />
               </div>
-              <div className="mt-5 flex flex-col divide-y divide-ink-100">
-                {reviewSamples.map((r) => (
-                  <div key={r.name} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-ink-900">{r.name}</p>
-                      <StarRating rating={r.rating} />
+              {reviews.length === 0 ? (
+                <p className="mt-4 text-sm text-ink-500">No reviews yet. Reviews come from patients after a booked visit.</p>
+              ) : (
+                <div className="mt-5 flex flex-col divide-y divide-ink-100">
+                  {reviews.map((r) => (
+                    <div key={`${r.patient_name}-${r.created_at}`} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-ink-900">{r.patient_name}</p>
+                        <StarRating rating={r.rating} />
+                      </div>
+                      {r.comment && <p className="mt-2 text-sm text-ink-600">{r.comment}</p>}
                     </div>
-                    <p className="mt-2 text-sm text-ink-600">{r.text}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
 

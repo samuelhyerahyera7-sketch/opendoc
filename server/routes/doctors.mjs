@@ -1,12 +1,25 @@
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
-import { hashPassword, verifyPassword, createSession, requireAuth } from '../auth.mjs'
+import { hashPassword, verifyPassword, createSession, requireAuth, createActionToken, consumeActionToken } from '../auth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
 import { specialtiesList, insurancesList, medicalAidsList, CASH_OPTION } from '../seed.mjs'
 import { haversineKm } from '../geo.mjs'
+import { sendEmail, verifyEmailMessage, resetPasswordEmail } from '../email.mjs'
 
 const router = Router()
+
+const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
+
+// Brute-force protection on the two endpoints that matter most for it.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again in a few minutes.' },
+})
 
 router.get('/specialties', (req, res) => {
   res.json(specialtiesList)
@@ -149,11 +162,14 @@ router.get('/doctors/:id', async (req, res) => {
   res.json(await serializeDoctor(rows[0]))
 })
 
-router.post('/doctors/register', async (req, res) => {
-  const { name, credentials, specialty, email, password, address, city, lat, lng, bio, insurances, acceptsCash } = req.body
+router.post('/doctors/register', authLimiter, async (req, res) => {
+  const { name, credentials, specialty, email, password, hpcsaNumber, address, city, lat, lng, bio, insurances, acceptsCash } = req.body
 
-  if (!name || !specialty || !email || !password) {
-    return res.status(400).json({ error: 'name, specialty, email, and password are required' })
+  if (!name || !specialty || !email || !password || !hpcsaNumber) {
+    return res.status(400).json({ error: 'name, specialty, email, password, and HPCSA registration number are required' })
+  }
+  if (String(password).length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' })
   }
 
   const { rows: existingRows } = await pool.query('SELECT id FROM doctors WHERE email = $1', [String(email).toLowerCase()])
@@ -164,8 +180,9 @@ router.post('/doctors/register', async (req, res) => {
 
   const id = crypto.randomUUID()
   await pool.query(
-    `INSERT INTO doctors (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, TRUE, $15, 5.0, 0)`,
+    `INSERT INTO doctors
+      (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count, hpcsa_number, verification_status, email_verified)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, TRUE, $15, 5.0, 0, $16, 'pending', FALSE)`,
     [
       id,
       name,
@@ -182,6 +199,7 @@ router.post('/doctors/register', async (req, res) => {
       JSON.stringify([]),
       JSON.stringify(['English']),
       wantsCash,
+      String(hpcsaNumber).trim(),
     ],
   )
 
@@ -190,12 +208,16 @@ router.post('/doctors/register', async (req, res) => {
     await pool.query('INSERT INTO doctor_insurances (doctor_id, insurance) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, ins])
   }
 
+  const verifyToken = await createActionToken(id, 'verify_email')
+  const { subject, html } = verifyEmailMessage({ name, verifyUrl: `${appUrl()}/verify-email?token=${verifyToken}` })
+  await sendEmail({ to: String(email).toLowerCase(), subject, html })
+
   const token = await createSession(id)
   const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [id])
   res.status(201).json({ token, doctor: await serializeDoctor(rows[0], { includePrivate: true }) })
 })
 
-router.post('/doctors/login', async (req, res) => {
+router.post('/doctors/login', authLimiter, async (req, res) => {
   const { email, password } = req.body
   const { rows } = await pool.query('SELECT * FROM doctors WHERE email = $1', [String(email || '').toLowerCase()])
   const row = rows[0]
@@ -204,6 +226,51 @@ router.post('/doctors/login', async (req, res) => {
   }
   const token = await createSession(row.id)
   res.json({ token, doctor: await serializeDoctor(row, { includePrivate: true }) })
+})
+
+router.get('/doctors/verify-email', async (req, res) => {
+  const doctorId = await consumeActionToken(String(req.query.token || ''), 'verify_email')
+  if (!doctorId) return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+  await pool.query('UPDATE doctors SET email_verified = TRUE WHERE id = $1', [doctorId])
+  res.json({ ok: true })
+})
+
+router.post('/doctors/resend-verification', requireAuth, authLimiter, async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [req.doctorId])
+  const doctor = rows[0]
+  if (!doctor) return res.status(404).json({ error: 'Not found' })
+  if (doctor.email_verified) return res.json({ ok: true, alreadyVerified: true })
+
+  const verifyToken = await createActionToken(doctor.id, 'verify_email')
+  const { subject, html } = verifyEmailMessage({ name: doctor.name, verifyUrl: `${appUrl()}/verify-email?token=${verifyToken}` })
+  const result = await sendEmail({ to: doctor.email, subject, html })
+  res.json({ ok: true, emailSent: result.sent })
+})
+
+router.post('/doctors/forgot-password', authLimiter, async (req, res) => {
+  const { email } = req.body
+  const { rows } = await pool.query('SELECT * FROM doctors WHERE email = $1', [String(email || '').toLowerCase()])
+  const doctor = rows[0]
+
+  // Always respond the same way whether or not the account exists, so this
+  // endpoint can't be used to check which emails have provider accounts.
+  if (doctor) {
+    const resetToken = await createActionToken(doctor.id, 'reset_password')
+    const { subject, html } = resetPasswordEmail({ name: doctor.name, resetUrl: `${appUrl()}/reset-password?token=${resetToken}` })
+    await sendEmail({ to: doctor.email, subject, html })
+  }
+  res.json({ ok: true })
+})
+
+router.post('/doctors/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body
+  if (!password || String(password).length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' })
+  }
+  const doctorId = await consumeActionToken(String(token || ''), 'reset_password')
+  if (!doctorId) return res.status(400).json({ error: 'This reset link is invalid or has expired.' })
+  await pool.query('UPDATE doctors SET password_hash = $1 WHERE id = $2', [hashPassword(password), doctorId])
+  res.json({ ok: true })
 })
 
 export default router
