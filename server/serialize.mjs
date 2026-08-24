@@ -22,6 +22,7 @@ export function serializeDoctor(row, { includePrivate = false } = {}) {
     education: row.education ? JSON.parse(row.education) : [],
     languages: row.languages ? JSON.parse(row.languages) : [],
     acceptingNew: !!row.accepting_new,
+    acceptsCash: !!row.accepts_cash,
     rating: row.rating,
     reviewCount: row.review_count,
     insurances,

@@ -29,6 +29,7 @@ db.exec(`
     education TEXT,
     languages TEXT,
     accepting_new INTEGER DEFAULT 1,
+    accepts_cash INTEGER DEFAULT 1,
     rating REAL DEFAULT 5.0,
     review_count INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))

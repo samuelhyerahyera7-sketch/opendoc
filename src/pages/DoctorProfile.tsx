@@ -103,9 +103,14 @@ export default function DoctorProfile() {
               </div>
 
               <div className="mt-6">
-                <p className="text-sm font-semibold text-ink-900">Medical aid / Insurance accepted</p>
+                <p className="text-sm font-semibold text-ink-900">Medical aid & payment options</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {doctor.insurances.length === 0 && <span className="text-sm text-ink-500">Contact office for details</span>}
+                  {doctor.acceptsCash && (
+                    <span className="rounded-full bg-accent-50 px-3 py-1 text-xs font-medium text-accent-600">Cash / Self-pay</span>
+                  )}
+                  {doctor.insurances.length === 0 && !doctor.acceptsCash && (
+                    <span className="text-sm text-ink-500">Contact office for details</span>
+                  )}
                   {doctor.insurances.map((i) => (
                     <span key={i} className="rounded-full bg-ink-100 px-3 py-1 text-xs font-medium text-ink-700">{i}</span>
                   ))}

@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import db from '../db.mjs'
 import { hashPassword, verifyPassword, createSession, requireAuth } from '../auth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
-import { specialtiesList, insurancesList } from '../seed.mjs'
+import { specialtiesList, insurancesList, medicalAidsList, CASH_OPTION } from '../seed.mjs'
 
 const router = Router()
 
@@ -11,8 +11,15 @@ router.get('/specialties', (req, res) => {
   res.json(specialtiesList)
 })
 
+// Full filter list for patient search: cash/self-pay first, then medical aid schemes.
 router.get('/insurances', (req, res) => {
   res.json(insurancesList)
+})
+
+// Medical aid schemes only (no cash option) — used on the provider signup form,
+// where cash acceptance is its own checkbox rather than a scheme to select.
+router.get('/medical-aids', (req, res) => {
+  res.json(medicalAidsList)
 })
 
 router.get('/doctors', (req, res) => {
@@ -30,7 +37,9 @@ router.get('/doctors', (req, res) => {
     )
   }
 
-  if (insurance) {
+  if (insurance === CASH_OPTION) {
+    rows = rows.filter((d) => d.accepts_cash)
+  } else if (insurance) {
     const withIns = new Set(
       db.prepare('SELECT doctor_id FROM doctor_insurances WHERE insurance = ?').all(insurance).map((r) => r.doctor_id),
     )
@@ -55,16 +64,26 @@ router.get('/doctors/me', requireAuth, (req, res) => {
 })
 
 router.patch('/doctors/me', requireAuth, (req, res) => {
-  const { bio, address, city, acceptingNew, insurances } = req.body
+  const { bio, address, city, acceptingNew, acceptsCash, insurances } = req.body
 
   db.prepare(
-    'UPDATE doctors SET bio = COALESCE(?, bio), address = COALESCE(?, address), city = COALESCE(?, city), accepting_new = COALESCE(?, accepting_new) WHERE id = ?',
-  ).run(bio ?? null, address ?? null, city ?? null, acceptingNew === undefined ? null : acceptingNew ? 1 : 0, req.doctorId)
+    'UPDATE doctors SET bio = COALESCE(?, bio), address = COALESCE(?, address), city = COALESCE(?, city), accepting_new = COALESCE(?, accepting_new), accepts_cash = COALESCE(?, accepts_cash) WHERE id = ?',
+  ).run(
+    bio ?? null,
+    address ?? null,
+    city ?? null,
+    acceptingNew === undefined ? null : acceptingNew ? 1 : 0,
+    acceptsCash === undefined ? null : acceptsCash ? 1 : 0,
+    req.doctorId,
+  )
 
   if (Array.isArray(insurances)) {
     db.prepare('DELETE FROM doctor_insurances WHERE doctor_id = ?').run(req.doctorId)
     const insert = db.prepare('INSERT OR IGNORE INTO doctor_insurances (doctor_id, insurance) VALUES (?, ?)')
-    for (const ins of insurances) insert.run(req.doctorId, ins)
+    for (const ins of insurances) {
+      if (ins === CASH_OPTION) continue
+      insert.run(req.doctorId, ins)
+    }
   }
 
   const row = db.prepare('SELECT * FROM doctors WHERE id = ?').get(req.doctorId)
@@ -87,7 +106,7 @@ router.get('/doctors/:id', (req, res) => {
 })
 
 router.post('/doctors/register', (req, res) => {
-  const { name, credentials, specialty, email, password, address, city, bio, insurances } = req.body
+  const { name, credentials, specialty, email, password, address, city, bio, insurances, acceptsCash } = req.body
 
   if (!name || !specialty || !email || !password) {
     return res.status(400).json({ error: 'name, specialty, email, and password are required' })
@@ -96,10 +115,13 @@ router.post('/doctors/register', (req, res) => {
   const existing = db.prepare('SELECT id FROM doctors WHERE email = ?').get(String(email).toLowerCase())
   if (existing) return res.status(409).json({ error: 'An account with this email already exists' })
 
+  const insuranceSelections = Array.isArray(insurances) ? insurances : []
+  const wantsCash = acceptsCash !== undefined ? !!acceptsCash : insuranceSelections.includes(CASH_OPTION)
+
   const id = crypto.randomUUID()
   db.prepare(
-    `INSERT INTO doctors (id, name, credentials, specialty, email, password_hash, photo, address, city, bio, education, languages, accepting_new, rating, review_count)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 5.0, 0)`,
+    `INSERT INTO doctors (id, name, credentials, specialty, email, password_hash, photo, address, city, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 5.0, 0)`,
   ).run(
     id,
     name,
@@ -113,11 +135,13 @@ router.post('/doctors/register', (req, res) => {
     bio || '',
     JSON.stringify([]),
     JSON.stringify(['English']),
+    wantsCash ? 1 : 0,
   )
 
-  if (Array.isArray(insurances)) {
-    const insert = db.prepare('INSERT OR IGNORE INTO doctor_insurances (doctor_id, insurance) VALUES (?, ?)')
-    for (const ins of insurances) insert.run(id, ins)
+  const insert = db.prepare('INSERT OR IGNORE INTO doctor_insurances (doctor_id, insurance) VALUES (?, ?)')
+  for (const ins of insuranceSelections) {
+    if (ins === CASH_OPTION) continue
+    insert.run(id, ins)
   }
 
   const token = createSession(id)

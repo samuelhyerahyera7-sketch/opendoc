@@ -31,8 +31,13 @@ export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
             <span>Accepting new patients</span>
           </div>
         )}
-        {doctor.insurances.length > 0 && (
+        {(doctor.insurances.length > 0 || doctor.acceptsCash) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
+            {doctor.acceptsCash && (
+              <span className="rounded-full bg-accent-50 px-2.5 py-0.5 text-xs font-medium text-accent-600">
+                Cash / Self-pay
+              </span>
+            )}
             {doctor.insurances.slice(0, 3).map((ins) => (
               <span key={ins} className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
                 {ins}

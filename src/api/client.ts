@@ -12,6 +12,7 @@ export type ApiDoctor = {
   education: string[]
   languages: string[]
   acceptingNew: boolean
+  acceptsCash: boolean
   rating: number
   reviewCount: number
   insurances: string[]
@@ -104,6 +105,7 @@ function authHeaders(token: string): HeadersInit {
 export const api = {
   getSpecialties: () => request<Specialty[]>('/specialties'),
   getInsurances: () => request<string[]>('/insurances'),
+  getMedicalAids: () => request<string[]>('/medical-aids'),
 
   searchDoctors: (params: { q?: string; insurance?: string; acceptingOnly?: boolean; sort?: string }) => {
     const search = new URLSearchParams()
@@ -126,6 +128,7 @@ export const api = {
     city?: string
     bio?: string
     insurances?: string[]
+    acceptsCash?: boolean
   }) =>
     request<{ token: string; doctor: ApiDoctor }>('/doctors/register', {
       method: 'POST',
@@ -142,7 +145,7 @@ export const api = {
 
   updateMyProfile: (
     token: string,
-    payload: Partial<{ bio: string; address: string; city: string; acceptingNew: boolean; insurances: string[] }>,
+    payload: Partial<{ bio: string; address: string; city: string; acceptingNew: boolean; acceptsCash: boolean; insurances: string[] }>,
   ) =>
     request<ApiDoctor>('/doctors/me', {
       method: 'PATCH',

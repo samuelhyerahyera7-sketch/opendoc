@@ -8,7 +8,7 @@ export default function ProviderSignup() {
   const navigate = useNavigate()
   const { register } = useDoctorAuth()
   const [specialties, setSpecialties] = useState<Specialty[]>([])
-  const [insurances, setInsurances] = useState<string[]>([])
+  const [medicalAids, setMedicalAids] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -23,10 +23,11 @@ export default function ProviderSignup() {
     bio: '',
   })
   const [selectedInsurances, setSelectedInsurances] = useState<string[]>([])
+  const [acceptsCash, setAcceptsCash] = useState(true)
 
   useEffect(() => {
     api.getSpecialties().then(setSpecialties).catch(() => {})
-    api.getInsurances().then(setInsurances).catch(() => {})
+    api.getMedicalAids().then(setMedicalAids).catch(() => {})
   }, [])
 
   function toggleInsurance(ins: string) {
@@ -38,7 +39,7 @@ export default function ProviderSignup() {
     setError(null)
     setSubmitting(true)
     try {
-      await register({ ...form, insurances: selectedInsurances })
+      await register({ ...form, insurances: selectedInsurances, acceptsCash })
       navigate('/provider/dashboard')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
@@ -156,9 +157,22 @@ export default function ProviderSignup() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-ink-700">Medical aid / insurance you accept</label>
+            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-ink-700">
+              <input
+                type="checkbox"
+                checked={acceptsCash}
+                onChange={(e) => setAcceptsCash(e.target.checked)}
+                className="h-4 w-4 rounded border-ink-300 text-brand-500 focus:ring-brand-400"
+              />
+              I accept cash-paying (self-pay) patients without medical aid
+            </label>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-ink-700">Medical aid schemes you accept</label>
+            <p className="mb-2 text-xs text-ink-400">Select every scheme your practice bills directly.</p>
             <div className="flex flex-wrap gap-2">
-              {insurances.map((ins) => (
+              {medicalAids.map((ins) => (
                 <button
                   type="button"
                   key={ins}
