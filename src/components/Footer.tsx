@@ -60,7 +60,6 @@ export default function Footer() {
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-ink-800 pt-8 text-sm sm:flex-row">
           <p>&copy; {new Date().getFullYear()} OpenDoc. All rights reserved.</p>
-          <p className="text-ink-400">Not affiliated with Zocdoc. Design demo only.</p>
         </div>
       </div>
     </footer>

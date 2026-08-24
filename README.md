@@ -1,6 +1,6 @@
 # OpenDoc
 
-A Zocdoc-style doctor search and booking platform for South Africa: patients
+A doctor search and booking platform for South Africa: patients
 search for doctors by specialty, name, location, or the medical aid they're
 on (or as a cash-paying patient) and book real appointments; doctors create
 a provider account, publish their availability, and securely transfer
