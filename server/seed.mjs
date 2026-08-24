@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import db from './db.mjs'
+import pool from './db.mjs'
 import { hashPassword } from './auth.mjs'
 import { CITY_COORDS, jitterCoord } from './geo.mjs'
 
@@ -65,25 +65,19 @@ function seededRandom(seed) {
   }
 }
 
-const insertDoctor = db.prepare(`
-  INSERT INTO doctors
-    (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
-  VALUES (@id, @name, @credentials, @specialty, @email, @password_hash, @photo, @address, @city, @lat, @lng, @bio, @education, @languages, @accepting_new, @accepts_cash, @rating, @review_count)
-`)
-const insertInsurance = db.prepare('INSERT OR IGNORE INTO doctor_insurances (doctor_id, insurance) VALUES (?, ?)')
-const insertSlot = db.prepare('INSERT INTO doctor_slots (doctor_id, day_label, time_label) VALUES (?, ?, ?)')
-
-export function seedIfEmpty() {
-  const { count } = db.prepare('SELECT COUNT(*) as count FROM doctors').get()
-  if (count > 0) return
+export async function seedIfEmpty() {
+  const { rows } = await pool.query('SELECT COUNT(*)::int as count FROM doctors')
+  if (rows[0].count > 0) return
 
   const rand = seededRandom(42)
   const cities = ['Sandton, Johannesburg', 'Cape Town CBD', 'Rosebank, Johannesburg', 'Umhlanga, Durban', 'Pretoria East', 'Bellville, Cape Town']
   const days = ['Today', 'Tomorrow', 'Wed, Aug 26', 'Thu, Aug 27', 'Fri, Aug 28']
   let idx = 0
 
-  db.exec('BEGIN')
+  const client = await pool.connect()
   try {
+    await client.query('BEGIN')
+
     for (const spec of specialtiesList) {
       for (let i = 0; i < 3; i++) {
         const [first, last] = names[idx % names.length]
@@ -93,38 +87,45 @@ export function seedIfEmpty() {
         const reviewCount = Math.floor(20 + rand() * 480)
         const city = cities[idx % cities.length]
         const coord = jitterCoord(CITY_COORDS[city], 6, rand)
+        const credentials =
+          spec.name === 'Dentist' ? 'DDS' : spec.name === 'Psychiatrist' ? 'MD, Psychiatry' : spec.name === 'Physical Therapist' ? 'DPT' : 'MD'
+        const education = [
+          ['University of Cape Town Faculty of Health Sciences', 'University of the Witwatersrand', 'Stellenbosch University Faculty of Medicine and Health Sciences'][idx % 3],
+          'Community service completed at a provincial hospital',
+        ]
+        const extraLang = ['Afrikaans', 'isiZulu', 'isiXhosa', 'Sesotho'][idx % 4]
+        const languages = rand() > 0.4 ? ['English', extraLang] : ['English']
 
-        insertDoctor.run({
-          id,
-          name: `${first} ${last}`,
-          credentials: spec.name === 'Dentist' ? 'DDS' : spec.name === 'Psychiatrist' ? 'MD, Psychiatry' : spec.name === 'Physical Therapist' ? 'DPT' : 'MD',
-          specialty: spec.name,
-          email: `${first}.${last}${idx}@opendoc-demo.com`.toLowerCase(),
-          password_hash: hashPassword('demopassword'),
-          photo: `https://i.pravatar.cc/300?img=${(idx % 70) + 1}`,
-          address: `${100 + idx * 3} ${['Rivonia Rd', 'Main Rd', 'Church St', 'Long St', 'Florida Rd'][idx % 5]}, Suite ${(idx % 9) + 1}0${idx % 3}`,
-          city,
-          lat: coord.lat,
-          lng: coord.lng,
-          bio: bios[idx % bios.length].replace('{name}', last),
-          education: JSON.stringify([
-            ['University of Cape Town Faculty of Health Sciences', 'University of the Witwatersrand', 'Stellenbosch University Faculty of Medicine and Health Sciences'][idx % 3],
-            'Community service completed at a provincial hospital',
-          ]),
-          languages: JSON.stringify(
-            (() => {
-              const extra = ['Afrikaans', 'isiZulu', 'isiXhosa', 'Sesotho'][idx % 4]
-              return rand() > 0.4 ? ['English', extra] : ['English']
-            })(),
-          ),
-          accepting_new: rand() > 0.2 ? 1 : 0,
-          accepts_cash: rand() > 0.1 ? 1 : 0,
-          rating,
-          review_count: reviewCount,
-        })
+        await client.query(
+          `INSERT INTO doctors
+            (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+          [
+            id,
+            `${first} ${last}`,
+            credentials,
+            spec.name,
+            `${first}.${last}${idx}@opendoc-demo.com`.toLowerCase(),
+            hashPassword('demopassword'),
+            `https://i.pravatar.cc/300?img=${(idx % 70) + 1}`,
+            `${100 + idx * 3} ${['Rivonia Rd', 'Main Rd', 'Church St', 'Long St', 'Florida Rd'][idx % 5]}, Suite ${(idx % 9) + 1}0${idx % 3}`,
+            city,
+            coord.lat,
+            coord.lng,
+            bios[idx % bios.length].replace('{name}', last),
+            JSON.stringify(education),
+            JSON.stringify(languages),
+            rand() > 0.2,
+            rand() > 0.1,
+            rating,
+            reviewCount,
+          ],
+        )
 
         for (const ins of medicalAidsList) {
-          if (rand() > 0.55) insertInsurance.run(id, ins)
+          if (rand() > 0.55) {
+            await client.query('INSERT INTO doctor_insurances (doctor_id, insurance) VALUES ($1, $2) ON CONFLICT DO NOTHING', [id, ins])
+          }
         }
 
         for (const day of days) {
@@ -134,15 +135,18 @@ export function seedIfEmpty() {
             const m = rand() > 0.5 ? '00' : '30'
             const ampm = h < 12 ? 'AM' : 'PM'
             const h12 = h > 12 ? h - 12 : h
-            insertSlot.run(id, day, `${h12}:${m} ${ampm}`)
+            await client.query('INSERT INTO doctor_slots (doctor_id, day_label, time_label) VALUES ($1, $2, $3)', [id, day, `${h12}:${m} ${ampm}`])
           }
         }
       }
     }
-    db.exec('COMMIT')
+
+    await client.query('COMMIT')
   } catch (err) {
-    db.exec('ROLLBACK')
+    await client.query('ROLLBACK')
     throw err
+  } finally {
+    client.release()
   }
 
   console.log(`Seeded ${idx} demo doctors.`)

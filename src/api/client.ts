@@ -48,7 +48,6 @@ export type PatientFile = {
   patient_last_name: string
   patient_email: string
   original_name: string
-  stored_name: string
   mime_type: string
   size_bytes: number
   note: string
