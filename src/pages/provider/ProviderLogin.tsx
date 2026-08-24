@@ -1,15 +1,29 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import { ApiError } from '../../api/client'
+import { useDoctorAuth } from '../../context/DoctorAuthContext'
 
-export default function Login() {
+export default function ProviderLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const { login } = useDoctorAuth()
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    navigate('/')
+    setError(null)
+    setSubmitting(true)
+    try {
+      await login(email, password)
+      navigate('/provider/dashboard')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -20,8 +34,10 @@ export default function Login() {
             <Search size={20} strokeWidth={2.5} />
           </span>
         </div>
-        <h1 className="mt-4 text-center text-2xl font-bold text-ink-900">Welcome back</h1>
-        <p className="mt-1 text-center text-sm text-ink-500">Log in to manage your appointments.</p>
+        <h1 className="mt-4 text-center text-2xl font-bold text-ink-900">Provider login</h1>
+        <p className="mt-1 text-center text-sm text-ink-500">Manage your schedule and patient files.</p>
+
+        {error && <div className="mt-5 rounded-lg bg-accent-50 px-4 py-3 text-sm text-accent-700">{error}</div>}
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <div>
@@ -32,7 +48,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
-              placeholder="you@example.com"
+              placeholder="you@practice.com"
             />
           </div>
           <div>
@@ -48,15 +64,16 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            className="mt-2 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+            disabled={submitting}
+            className="mt-2 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
           >
-            Log In
+            {submitting ? 'Logging in…' : 'Log In'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-ink-500">
-          Don't have an account?{' '}
-          <Link to="/signup" className="font-semibold text-brand-600 hover:underline">Sign up</Link>
+          Don't have a provider account?{' '}
+          <Link to="/provider/signup" className="font-semibold text-brand-600 hover:underline">List your practice</Link>
         </p>
       </div>
     </div>

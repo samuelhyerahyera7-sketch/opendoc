@@ -1,23 +1,58 @@
-import { useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarCheck2, CheckCircle2, MapPin } from 'lucide-react'
-import { getDoctorById } from '../data/mockData'
+import { api, ApiError, type ApiDoctor } from '../api/client'
 
 export default function Booking() {
   const { id } = useParams()
   const [params] = useSearchParams()
-  const doctor = id ? getDoctorById(id) : undefined
+  const navigate = useNavigate()
+  const slotId = params.get('slotId')
   const day = params.get('day') ?? ''
   const time = params.get('time') ?? ''
 
+  const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', reason: '', newPatient: true })
 
-  if (!doctor) return <Navigate to="/search" replace />
+  useEffect(() => {
+    if (!id) return
+    api.getDoctor(id).catch(() => null).then((d) => setDoctor(d))
+  }, [id])
 
-  function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (!id || !slotId) navigate('/search', { replace: true })
+  }, [id, slotId, navigate])
+
+  if (!id || !slotId) return null
+
+  if (!doctor) {
+    return <div className="flex flex-1 items-center justify-center py-24 text-ink-400">Loading…</div>
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitted(true)
+    setSubmitting(true)
+    setError(null)
+    try {
+      await api.bookAppointment({
+        doctorId: id!,
+        slotId: Number(slotId),
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        reason: form.reason,
+        newPatient: form.newPatient,
+      })
+      setSubmitted(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -68,6 +103,11 @@ export default function Booking() {
 
         <form onSubmit={handleSubmit} className="mt-6 rounded-2xl border border-ink-100 bg-white p-6">
           <h2 className="text-lg font-bold text-ink-900">Your information</h2>
+
+          {error && (
+            <div className="mt-4 rounded-lg bg-accent-50 px-4 py-3 text-sm text-accent-700">{error}</div>
+          )}
+
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink-700">First name</label>
@@ -131,9 +171,10 @@ export default function Booking() {
 
           <button
             type="submit"
-            className="mt-6 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600"
+            disabled={submitting}
+            className="mt-6 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:opacity-60"
           >
-            Confirm appointment
+            {submitting ? 'Confirming…' : 'Confirm appointment'}
           </button>
         </form>
       </div>

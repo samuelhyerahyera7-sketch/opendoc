@@ -6,9 +6,11 @@ import Home from './pages/Home'
 import SearchResults from './pages/SearchResults'
 import DoctorProfile from './pages/DoctorProfile'
 import Booking from './pages/Booking'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
 import ForProviders from './pages/ForProviders'
+import ProviderSignup from './pages/provider/ProviderSignup'
+import ProviderLogin from './pages/provider/ProviderLogin'
+import ProviderDashboard from './pages/provider/ProviderDashboard'
+import { DoctorAuthProvider } from './context/DoctorAuthContext'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -21,20 +23,23 @@ function ScrollToTop() {
 function App() {
   return (
     <BrowserRouter>
-      <ScrollToTop />
-      <Header />
-      <main className="flex flex-1 flex-col">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/search" element={<SearchResults />} />
-          <Route path="/doctor/:id" element={<DoctorProfile />} />
-          <Route path="/booking/:id" element={<Booking />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/for-providers" element={<ForProviders />} />
-        </Routes>
-      </main>
-      <Footer />
+      <DoctorAuthProvider>
+        <ScrollToTop />
+        <Header />
+        <main className="flex flex-1 flex-col">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/doctor/:id" element={<DoctorProfile />} />
+            <Route path="/booking/:id" element={<Booking />} />
+            <Route path="/for-providers" element={<ForProviders />} />
+            <Route path="/provider/signup" element={<ProviderSignup />} />
+            <Route path="/provider/login" element={<ProviderLogin />} />
+            <Route path="/provider/dashboard" element={<ProviderDashboard />} />
+          </Routes>
+        </main>
+        <Footer />
+      </DoctorAuthProvider>
     </BrowserRouter>
   )
 }

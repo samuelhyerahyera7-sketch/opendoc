@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { CalendarCheck2, MapPin, ShieldCheck } from 'lucide-react'
-import type { Doctor } from '../data/mockData'
+import type { ApiDoctor } from '../api/client'
 import StarRating from './StarRating'
 
-export default function DoctorCard({ doctor }: { doctor: Doctor }) {
+export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
+  const nextSlot = doctor.slots[0]
+
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-ink-100 bg-white p-5 transition hover:shadow-lg hover:shadow-ink-900/5 sm:flex-row">
       <img
@@ -21,12 +23,26 @@ export default function DoctorCard({ doctor }: { doctor: Doctor }) {
         </div>
         <div className="mt-2 flex items-center gap-1.5 text-sm text-ink-500">
           <MapPin size={14} />
-          <span>{doctor.address} &middot; {doctor.distance}</span>
+          <span>{doctor.address}{doctor.city ? `, ${doctor.city}` : ''}</span>
         </div>
         {doctor.acceptingNew && (
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-brand-600">
             <ShieldCheck size={14} />
             <span>Accepting new patients</span>
+          </div>
+        )}
+        {doctor.insurances.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {doctor.insurances.slice(0, 3).map((ins) => (
+              <span key={ins} className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
+                {ins}
+              </span>
+            ))}
+            {doctor.insurances.length > 3 && (
+              <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
+                +{doctor.insurances.length - 3} more
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -36,7 +52,9 @@ export default function DoctorCard({ doctor }: { doctor: Doctor }) {
           <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-ink-500">
             <CalendarCheck2 size={13} /> Next available
           </p>
-          <p className="mt-1 text-sm font-bold text-brand-700">{doctor.nextAvailable}</p>
+          <p className="mt-1 text-sm font-bold text-brand-700">
+            {nextSlot ? `${nextSlot.day} at ${nextSlot.time}` : 'No openings'}
+          </p>
         </div>
         <Link
           to={`/doctor/${doctor.id}`}

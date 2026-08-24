@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
-import { specialties } from '../data/mockData'
+import { specialtyIcons } from '../data/staticData'
+
+const specialties = Object.keys(specialtyIcons).map((name) => ({ name }))
 
 export default function Footer() {
   return (

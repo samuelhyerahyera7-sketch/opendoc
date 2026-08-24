@@ -1,10 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Menu, Search, X } from 'lucide-react'
+import { LayoutDashboard, Menu, Search, X } from 'lucide-react'
 import { useState } from 'react'
+import { useDoctorAuth } from '../context/DoctorAuthContext'
 
 export default function Header() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const { doctor } = useDoctorAuth()
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur">
@@ -29,18 +31,29 @@ export default function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to="/login"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
-          >
-            Log In
-          </Link>
-          <Link
-            to="/signup"
-            className="rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
-          >
-            Sign Up
-          </Link>
+          {doctor ? (
+            <Link
+              to="/provider/dashboard"
+              className="flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
+            >
+              <LayoutDashboard size={15} /> Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/provider/login"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+              >
+                Provider Login
+              </Link>
+              <Link
+                to="/provider/signup"
+                className="rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
+              >
+                List Your Practice
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -61,16 +74,28 @@ export default function Header() {
             <Link onClick={() => setOpen(false)} to="/for-providers" className="rounded-md px-2 py-2 hover:bg-ink-50">
               For Providers
             </Link>
-            <Link onClick={() => setOpen(false)} to="/login" className="rounded-md px-2 py-2 hover:bg-ink-50">
-              Log In
-            </Link>
-            <Link
-              onClick={() => setOpen(false)}
-              to="/signup"
-              className="mt-1 rounded-full bg-brand-500 px-4 py-2 text-center font-semibold text-white"
-            >
-              Sign Up
-            </Link>
+            {doctor ? (
+              <Link
+                onClick={() => setOpen(false)}
+                to="/provider/dashboard"
+                className="mt-1 rounded-full bg-brand-500 px-4 py-2 text-center font-semibold text-white"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link onClick={() => setOpen(false)} to="/provider/login" className="rounded-md px-2 py-2 hover:bg-ink-50">
+                  Provider Login
+                </Link>
+                <Link
+                  onClick={() => setOpen(false)}
+                  to="/provider/signup"
+                  className="mt-1 rounded-full bg-brand-500 px-4 py-2 text-center font-semibold text-white"
+                >
+                  List Your Practice
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

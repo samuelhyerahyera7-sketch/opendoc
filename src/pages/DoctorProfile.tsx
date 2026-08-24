@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarDays, GraduationCap, Languages, MapPin, ShieldCheck } from 'lucide-react'
-import { getDoctorById } from '../data/mockData'
+import { api, type ApiDoctor } from '../api/client'
 import StarRating from '../components/StarRating'
 
 const reviewSamples = [
@@ -10,20 +10,42 @@ const reviewSamples = [
   { name: 'Alex R.', text: 'Professional and knowledgeable. Explained everything clearly before proceeding.', rating: 4 },
 ]
 
-const days = ['Today', 'Tomorrow', 'Wed, Aug 26', 'Thu, Aug 27', 'Fri, Aug 28']
-
 export default function DoctorProfile() {
   const { id } = useParams()
-  const doctor = id ? getDoctorById(id) : undefined
   const navigate = useNavigate()
-  const [selectedDay, setSelectedDay] = useState(0)
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<{ id: number; time: string } | null>(null)
 
-  if (!doctor) return <Navigate to="/search" replace />
+  useEffect(() => {
+    if (!id) return
+    api
+      .getDoctor(id)
+      .then((d) => {
+        setDoctor(d)
+        const firstDay = d.slots[0]?.day ?? null
+        setSelectedDay(firstDay)
+      })
+      .catch(() => setNotFound(true))
+  }, [id])
+
+  useEffect(() => {
+    if (notFound) navigate('/search', { replace: true })
+  }, [notFound, navigate])
+
+  if (notFound) return null
+
+  if (!doctor) {
+    return <div className="flex flex-1 items-center justify-center py-24 text-ink-400">Loading doctor…</div>
+  }
+
+  const days = Array.from(new Set(doctor.slots.map((s) => s.day)))
+  const slotsForDay = doctor.slots.filter((s) => s.day === selectedDay)
 
   function handleBook() {
-    if (!selectedSlot) return
-    navigate(`/booking/${doctor!.id}?day=${encodeURIComponent(days[selectedDay])}&time=${encodeURIComponent(selectedSlot)}`)
+    if (!selectedSlot || !selectedDay || !doctor) return
+    navigate(`/booking/${doctor.id}?slotId=${selectedSlot.id}&day=${encodeURIComponent(selectedDay)}&time=${encodeURIComponent(selectedSlot.time)}`)
   }
 
   return (
@@ -42,7 +64,7 @@ export default function DoctorProfile() {
               </div>
               <div className="mt-3 flex items-center gap-1.5 text-sm text-ink-500">
                 <MapPin size={15} />
-                {doctor.address}, {doctor.city}
+                {doctor.address}{doctor.city ? `, ${doctor.city}` : ''}
               </div>
               {doctor.acceptingNew && (
                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">
@@ -67,7 +89,7 @@ export default function DoctorProfile() {
                   <div>
                     <p className="text-sm font-semibold text-ink-900">Education & Training</p>
                     <ul className="mt-1 text-sm text-ink-500">
-                      {doctor.education.map((e) => <li key={e}>{e}</li>)}
+                      {doctor.education.length ? doctor.education.map((e) => <li key={e}>{e}</li>) : <li>Not provided</li>}
                     </ul>
                   </div>
                 </div>
@@ -75,13 +97,13 @@ export default function DoctorProfile() {
                   <Languages size={18} className="mt-0.5 shrink-0 text-brand-500" />
                   <div>
                     <p className="text-sm font-semibold text-ink-900">Languages</p>
-                    <p className="mt-1 text-sm text-ink-500">{doctor.languages.join(', ')}</p>
+                    <p className="mt-1 text-sm text-ink-500">{doctor.languages.join(', ') || 'English'}</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-6">
-                <p className="text-sm font-semibold text-ink-900">Insurance accepted</p>
+                <p className="text-sm font-semibold text-ink-900">Medical aid / Insurance accepted</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {doctor.insurances.length === 0 && <span className="text-sm text-ink-500">Contact office for details</span>}
                   {doctor.insurances.map((i) => (
@@ -116,46 +138,52 @@ export default function DoctorProfile() {
               <h3 className="font-bold">Book an appointment</h3>
             </div>
 
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-              {days.map((d, i) => (
-                <button
-                  key={d}
-                  onClick={() => { setSelectedDay(i); setSelectedSlot(null) }}
-                  className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${
-                    selectedDay === i ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
+            {days.length === 0 ? (
+              <p className="mt-4 text-sm text-ink-500">This doctor has no open appointment times right now.</p>
+            ) : (
+              <>
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {days.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => { setSelectedDay(d); setSelectedSlot(null) }}
+                      className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${
+                        selectedDay === d ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {doctor.slots.map((slot) => (
-                <button
-                  key={slot}
-                  onClick={() => setSelectedSlot(slot)}
-                  className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
-                    selectedSlot === slot
-                      ? 'border-accent-500 bg-accent-50 text-accent-600'
-                      : 'border-ink-200 text-ink-700 hover:border-brand-300'
-                  }`}
-                >
-                  {slot}
-                </button>
-              ))}
-            </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {slotsForDay.map((slot) => (
+                    <button
+                      key={slot.id}
+                      onClick={() => setSelectedSlot({ id: slot.id, time: slot.time })}
+                      className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
+                        selectedSlot?.id === slot.id
+                          ? 'border-accent-500 bg-accent-50 text-accent-600'
+                          : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                      }`}
+                    >
+                      {slot.time}
+                    </button>
+                  ))}
+                </div>
 
-            <button
-              onClick={handleBook}
-              disabled={!selectedSlot}
-              className="mt-5 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
-            >
-              {selectedSlot ? `Confirm ${days[selectedDay]} at ${selectedSlot}` : 'Select a time'}
-            </button>
+                <button
+                  onClick={handleBook}
+                  disabled={!selectedSlot}
+                  className="mt-5 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
+                >
+                  {selectedSlot ? `Confirm ${selectedDay} at ${selectedSlot.time}` : 'Select a time'}
+                </button>
+              </>
+            )}
             <p className="mt-3 text-center text-xs text-ink-400">
-              Free to book. No account required to view times.{' '}
-              <Link to="/signup" className="text-brand-600 underline">Sign up</Link> to save your visit history.
+              Free to book. No account required.{' '}
+              <Link to="/provider/signup" className="text-brand-600 underline">Are you a doctor? List your practice</Link>
             </p>
           </aside>
         </div>
