@@ -255,10 +255,13 @@ export const api = {
 
   admin: {
     getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),
+    getAllDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors', { headers: authHeaders(adminToken) }),
     verifyDoctor: (adminToken: string, doctorId: string) =>
       request<ApiDoctor>(`/admin/doctors/${doctorId}/verify`, { method: 'POST', headers: authHeaders(adminToken) }),
     rejectDoctor: (adminToken: string, doctorId: string) =>
       request<ApiDoctor>(`/admin/doctors/${doctorId}/reject`, { method: 'POST', headers: authHeaders(adminToken) }),
+    deleteDoctor: (adminToken: string, doctorId: string) =>
+      request<void>(`/admin/doctors/${doctorId}`, { method: 'DELETE', headers: authHeaders(adminToken) }),
   },
 }
 

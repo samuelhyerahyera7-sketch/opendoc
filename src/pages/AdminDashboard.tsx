@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, Trash2 } from 'lucide-react'
 import { api, ApiError, type ApiDoctor } from '../api/client'
 
 const STORAGE_KEY = 'opendoc.admin.token'
+type Tab = 'pending' | 'all'
 
 export default function AdminDashboard() {
   const [adminToken, setAdminToken] = useState(() => localStorage.getItem(STORAGE_KEY) || '')
   const [tokenInput, setTokenInput] = useState('')
+  const [tab, setTab] = useState<Tab>('pending')
   const [pending, setPending] = useState<ApiDoctor[] | null>(null)
+  const [all, setAll] = useState<ApiDoctor[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   function load(token: string) {
     setError(null)
-    api
-      .admin.getPendingDoctors(token)
-      .then((docs) => {
-        setPending(docs)
+    Promise.all([api.admin.getPendingDoctors(token), api.admin.getAllDoctors(token)])
+      .then(([pendingDocs, allDocs]) => {
+        setPending(pendingDocs)
+        setAll(allDocs)
         localStorage.setItem(STORAGE_KEY, token)
         setAdminToken(token)
       })
       .catch((err) => {
-        setError(err instanceof ApiError ? err.message : 'Could not load pending doctors.')
+        setError(err instanceof ApiError ? err.message : 'Could not load doctors.')
         localStorage.removeItem(STORAGE_KEY)
         setAdminToken('')
       })
@@ -33,8 +36,16 @@ export default function AdminDashboard() {
 
   async function decide(id: string, action: 'verify' | 'reject') {
     const fn = action === 'verify' ? api.admin.verifyDoctor : api.admin.rejectDoctor
-    await fn(adminToken, id)
+    const updated = await fn(adminToken, id)
     setPending((prev) => prev?.filter((d) => d.id !== id) ?? null)
+    setAll((prev) => prev?.map((d) => (d.id === id ? updated : d)) ?? null)
+  }
+
+  async function remove(id: string, name: string) {
+    if (!window.confirm(`Permanently delete ${name}? This also removes their appointments, files, and reviews.`)) return
+    await api.admin.deleteDoctor(adminToken, id)
+    setPending((prev) => prev?.filter((d) => d.id !== id) ?? null)
+    setAll((prev) => prev?.filter((d) => d.id !== id) ?? null)
   }
 
   if (!adminToken) {
@@ -72,38 +83,68 @@ export default function AdminDashboard() {
     )
   }
 
+  const list = tab === 'pending' ? pending : all
+
   return (
     <div className="bg-ink-50/60 flex-1">
       <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-        <h1 className="text-xl font-bold text-ink-900">Doctor verification queue</h1>
-        <p className="mt-1 text-sm text-ink-500">Confirm each HPCSA number before approving a listing.</p>
+        <h1 className="text-xl font-bold text-ink-900">Doctor directory</h1>
+        <p className="mt-1 text-sm text-ink-500">Review verification requests, or manage the full directory.</p>
 
-        {pending && pending.length === 0 && (
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={() => setTab('pending')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold ${tab === 'pending' ? 'bg-brand-500 text-white' : 'bg-white text-ink-600 ring-1 ring-ink-200'}`}
+          >
+            Pending review ({pending?.length ?? '…'})
+          </button>
+          <button
+            onClick={() => setTab('all')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold ${tab === 'all' ? 'bg-brand-500 text-white' : 'bg-white text-ink-600 ring-1 ring-ink-200'}`}
+          >
+            All doctors ({all?.length ?? '…'})
+          </button>
+        </div>
+
+        {list && list.length === 0 && (
           <div className="mt-8 rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center text-ink-500">
-            Nothing pending review.
+            {tab === 'pending' ? 'Nothing pending review.' : 'No doctors in the directory.'}
           </div>
         )}
 
         <div className="mt-6 flex flex-col gap-3">
-          {pending?.map((d) => (
+          {list?.map((d) => (
             <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white p-5">
               <div>
                 <p className="font-semibold text-ink-900">{d.name}, {d.credentials} — {d.specialty}</p>
                 <p className="text-sm text-ink-500">{d.email}</p>
-                <p className="mt-1 text-sm font-medium text-ink-700">HPCSA: {d.hpcsaNumber || '—'}</p>
+                <p className="mt-1 text-sm font-medium text-ink-700">
+                  HPCSA: {d.hpcsaNumber || '—'} &middot; <span className="capitalize">{d.verificationStatus}</span>
+                </p>
               </div>
               <div className="flex gap-2">
+                {d.verificationStatus !== 'rejected' && (
+                  <button
+                    onClick={() => decide(d.id, 'reject')}
+                    className="rounded-full border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                  >
+                    Reject
+                  </button>
+                )}
+                {d.verificationStatus !== 'verified' && (
+                  <button
+                    onClick={() => decide(d.id, 'verify')}
+                    className="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                  >
+                    Verify
+                  </button>
+                )}
                 <button
-                  onClick={() => decide(d.id, 'reject')}
-                  className="rounded-full border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                  onClick={() => remove(d.id, d.name)}
+                  title="Delete permanently"
+                  className="flex items-center gap-1.5 rounded-full border border-accent-200 px-4 py-2 text-xs font-semibold text-accent-700 hover:bg-accent-50"
                 >
-                  Reject
-                </button>
-                <button
-                  onClick={() => decide(d.id, 'verify')}
-                  className="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
-                >
-                  Verify
+                  <Trash2 size={13} /> Delete
                 </button>
               </div>
             </div>

@@ -7,13 +7,16 @@ import appointmentsRouter from './routes/appointments.mjs'
 import filesRouter from './routes/files.mjs'
 import adminRouter from './routes/admin.mjs'
 
-// Schema creation + demo seeding only need to happen once per running
-// instance. In serverless, that's once per cold start (memoized here);
-// locally it just runs once at startup.
+// Schema creation always runs once per instance (memoized). Demo data
+// seeding is opt-in via SEED_DEMO_DATA=true — meant for local dev only, so
+// a real deployment starts with an empty, real doctor directory instead of
+// silently repopulating itself with fake demo doctors.
 let readyPromise
 function ready() {
   if (!readyPromise) {
-    readyPromise = initSchema().then(() => seedIfEmpty())
+    readyPromise = initSchema().then(() => {
+      if (process.env.SEED_DEMO_DATA === 'true') return seedIfEmpty()
+    })
   }
   return readyPromise
 }
