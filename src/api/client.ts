@@ -1,5 +1,7 @@
 export type Specialty = { name: string; icon: string }
 
+export type InsuranceStat = { name: string; count: number; isCash: boolean }
+
 export type ApiDoctor = {
   id: string
   name: string
@@ -106,11 +108,13 @@ export const api = {
   getSpecialties: () => request<Specialty[]>('/specialties'),
   getInsurances: () => request<string[]>('/insurances'),
   getMedicalAids: () => request<string[]>('/medical-aids'),
+  getInsuranceStats: () => request<InsuranceStat[]>('/insurances/stats'),
 
-  searchDoctors: (params: { q?: string; insurance?: string; acceptingOnly?: boolean; sort?: string }) => {
+  searchDoctors: (params: { q?: string; insurance?: string; specialty?: string; acceptingOnly?: boolean; sort?: string }) => {
     const search = new URLSearchParams()
     if (params.q) search.set('q', params.q)
     if (params.insurance) search.set('insurance', params.insurance)
+    if (params.specialty) search.set('specialty', params.specialty)
     if (params.acceptingOnly) search.set('acceptingOnly', 'true')
     if (params.sort) search.set('sort', params.sort)
     return request<ApiDoctor[]>(`/doctors?${search.toString()}`)

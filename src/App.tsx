@@ -6,6 +6,8 @@ import Home from './pages/Home'
 import SearchResults from './pages/SearchResults'
 import DoctorProfile from './pages/DoctorProfile'
 import Booking from './pages/Booking'
+import MedicalAidHub from './pages/MedicalAidHub'
+import MedicalAidSchemePage from './pages/MedicalAidSchemePage'
 import ForProviders from './pages/ForProviders'
 import ProviderSignup from './pages/provider/ProviderSignup'
 import ProviderLogin from './pages/provider/ProviderLogin'
@@ -32,6 +34,8 @@ function App() {
             <Route path="/search" element={<SearchResults />} />
             <Route path="/doctor/:id" element={<DoctorProfile />} />
             <Route path="/booking/:id" element={<Booking />} />
+            <Route path="/medical-aid" element={<MedicalAidHub />} />
+            <Route path="/medical-aid/:slug" element={<MedicalAidSchemePage />} />
             <Route path="/for-providers" element={<ForProviders />} />
             <Route path="/provider/signup" element={<ProviderSignup />} />
             <Route path="/provider/login" element={<ProviderLogin />} />

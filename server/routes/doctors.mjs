@@ -22,8 +22,26 @@ router.get('/medical-aids', (req, res) => {
   res.json(medicalAidsList)
 })
 
+// How many doctors accept each payment option — powers the medical aid hub
+// page so patients can see coverage at a glance before clicking in.
+router.get('/insurances/stats', (req, res) => {
+  const counts = new Map(
+    db
+      .prepare('SELECT insurance, COUNT(DISTINCT doctor_id) as count FROM doctor_insurances GROUP BY insurance')
+      .all()
+      .map((r) => [r.insurance, r.count]),
+  )
+  const { cashCount } = db.prepare('SELECT COUNT(*) as cashCount FROM doctors WHERE accepts_cash = 1').get()
+
+  const stats = [
+    { name: CASH_OPTION, count: cashCount, isCash: true },
+    ...medicalAidsList.map((name) => ({ name, count: counts.get(name) || 0, isCash: false })),
+  ]
+  res.json(stats)
+})
+
 router.get('/doctors', (req, res) => {
-  const { q = '', insurance = '', acceptingOnly, sort = 'relevance' } = req.query
+  const { q = '', insurance = '', specialty = '', acceptingOnly, sort = 'relevance' } = req.query
 
   let rows = db.prepare('SELECT * FROM doctors').all()
 
@@ -35,6 +53,10 @@ router.get('/doctors', (req, res) => {
         d.name.toLowerCase().includes(query) ||
         (d.city || '').toLowerCase().includes(query),
     )
+  }
+
+  if (specialty) {
+    rows = rows.filter((d) => d.specialty === specialty)
   }
 
   if (insurance === CASH_OPTION) {

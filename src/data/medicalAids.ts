@@ -44,3 +44,18 @@ export function getMedicalAidVisual(name: string): MedicalAidVisual {
 
 export const CASH_VISUAL: MedicalAidVisual = { code: 'R', bg: '#ea580c', fg: '#ffffff' }
 export const CASH_LABEL = 'Cash / Self-pay (no medical aid)'
+export const CASH_SLUG = 'cash'
+
+export function slugifyMedicalAid(name: string): string {
+  if (name === CASH_LABEL) return CASH_SLUG
+  return name
+    .toLowerCase()
+    .replace(/[()]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
+export function unslugifyMedicalAid(slug: string, allNames: string[]): string | undefined {
+  if (slug === CASH_SLUG) return CASH_LABEL
+  return allNames.find((name) => slugifyMedicalAid(name) === slug)
+}

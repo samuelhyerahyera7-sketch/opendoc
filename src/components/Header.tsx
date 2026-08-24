@@ -19,6 +19,9 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm font-medium text-ink-700 md:flex">
+          <Link to="/medical-aid" className="flex items-center gap-1.5 text-brand-700 hover:text-brand-600">
+            Medical Aid
+          </Link>
           <button onClick={() => navigate('/search')} className="hover:text-brand-600">
             Find Care
           </button>
@@ -68,6 +71,9 @@ export default function Header() {
       {open && (
         <div className="border-t border-ink-100 px-4 py-3 md:hidden">
           <div className="flex flex-col gap-1 text-sm font-medium text-ink-700">
+            <Link onClick={() => setOpen(false)} to="/medical-aid" className="rounded-md px-2 py-2 font-semibold text-brand-700 hover:bg-ink-50">
+              Medical Aid
+            </Link>
             <button onClick={() => { setOpen(false); navigate('/search') }} className="rounded-md px-2 py-2 text-left hover:bg-ink-50">
               Find Care
             </button>
