@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* Brand palette — teal/coral (Zocdoc uses blue/orange) */
+  --color-brand-50: #eefcfa;
+  --color-brand-100: #d3f6f0;
+  --color-brand-200: #a9ece1;
+  --color-brand-300: #74dccd;
+  --color-brand-400: #3fc4b3;
+  --color-brand-500: #1fa898;
+  --color-brand-600: #15877b;
+  --color-brand-700: #146c64;
+  --color-brand-800: #145651;
+  --color-brand-900: #124844;
+  --color-brand-950: #062a28;
+
+  --color-accent-50: #fff3ed;
+  --color-accent-100: #ffe4d4;
+  --color-accent-200: #ffc4a8;
+  --color-accent-300: #ff9c71;
+  --color-accent-400: #ff6f3c;
+  --color-accent-500: #fa4a17;
+  --color-accent-600: #eb320a;
+  --color-accent-700: #c2230a;
+  --color-accent-800: #9a1e10;
+  --color-accent-900: #7d1c11;
+
+  --color-ink-50: #f6f7f8;
+  --color-ink-100: #eceef1;
+  --color-ink-200: #d5d9e0;
+  --color-ink-300: #b1b9c6;
+  --color-ink-400: #8692a6;
+  --color-ink-500: #67748c;
+  --color-ink-600: #535e74;
+  --color-ink-700: #444d5f;
+  --color-ink-800: #3a4150;
+  --color-ink-900: #232733;
+  --color-ink-950: #16181f;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-ink-800);
+  background: #fff;
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+* {
+  box-sizing: border-box;
+}
