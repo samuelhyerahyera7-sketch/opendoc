@@ -1,7 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Menu, Search, X } from 'lucide-react'
+import { LayoutDashboard, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { useDoctorAuth } from '../context/DoctorAuthContext'
+import logoIcon from '../assets/opendoc-icon.png'
 
 export default function Header() {
   const [open, setOpen] = useState(false)
@@ -12,9 +13,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-500 text-white">
-            <Search size={18} strokeWidth={2.5} />
-          </span>
+          <img src={logoIcon} alt="OpenDoc" className="h-9 w-auto" />
           <span className="text-xl font-extrabold tracking-tight text-ink-900">OpenDoc</span>
         </Link>
 
