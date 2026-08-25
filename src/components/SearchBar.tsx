@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Crosshair, Loader2, MapPin, Search } from 'lucide-react'
-import { findLocationByName, searchLocations } from '../data/saLocations'
+import { findLocationByName, searchLocations, type SALocation } from '../data/saLocations'
+import { geocodeSearch, type GeocodeResult } from '../lib/mapbox'
 
 export default function SearchBar({
   initialQuery = '',
@@ -22,6 +23,7 @@ export default function SearchBar({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [locating, setLocating] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
+  const [addressResults, setAddressResults] = useState<GeocodeResult[]>([])
   const wrapRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
@@ -33,7 +35,17 @@ export default function SearchBar({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const suggestions = searchLocations(location)
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      geocodeSearch(location).then(setAddressResults)
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [location])
+
+  const localSuggestions = searchLocations(location)
+  const localNames = new Set(localSuggestions.map((l) => l.name.toLowerCase()))
+  const addressSuggestions = addressResults.filter((r) => !localNames.has(r.name.toLowerCase()))
+  const suggestions: (SALocation | GeocodeResult)[] = [...localSuggestions, ...addressSuggestions]
 
   function pickSuggestion(name: string, lat: number, lng: number) {
     setLocation(name)

@@ -28,6 +28,7 @@ export default function ProviderSignup() {
   })
   const [selectedInsurances, setSelectedInsurances] = useState<string[]>([])
   const [acceptsCash, setAcceptsCash] = useState(true)
+  const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     api.getSpecialties().then(setSpecialties).catch(() => {})
@@ -43,7 +44,7 @@ export default function ProviderSignup() {
     setError(null)
     setSubmitting(true)
     try {
-      const area = findLocationByName(form.city)
+      const area = cityCoords ?? findLocationByName(form.city)
       await register({
         ...form,
         lat: area?.lat,
@@ -165,8 +166,11 @@ export default function ProviderSignup() {
               <LocationAutocomplete
                 required
                 value={form.city}
-                onChange={(name) => setForm({ ...form, city: name })}
-                placeholder="Search for your city or town…"
+                onChange={(name, location) => {
+                  setForm({ ...form, city: name })
+                  setCityCoords(location ? { lat: location.lat, lng: location.lng } : null)
+                }}
+                placeholder="Search for your city, town, or full address…"
               />
               <p className="mt-1.5 text-xs text-ink-400">Used to show your distance to nearby patients.</p>
             </div>
