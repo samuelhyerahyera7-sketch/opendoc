@@ -14,7 +14,10 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center gap-2 shrink-0">
           <img src={logoIcon} alt="OpenDoc" className="h-9 w-auto" />
-          <span className="text-xl font-extrabold tracking-tight text-ink-900">OpenDoc</span>
+          <span className="text-xl font-extrabold tracking-tight">
+            <span className="text-ink-900">open</span>
+            <span className="text-brand-500">doc</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm font-medium text-ink-700 md:flex">
