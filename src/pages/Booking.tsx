@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarCheck2, CheckCircle2, MapPin } from 'lucide-react'
 import { api, ApiError, type ApiDoctor } from '../api/client'
+import { usePatientAuth } from '../context/PatientAuthContext'
 
 export default function Booking() {
   const { id } = useParams()
@@ -11,6 +12,7 @@ export default function Booking() {
   const day = params.get('day') ?? ''
   const time = params.get('time') ?? ''
 
+  const { token: patientToken, patient } = usePatientAuth()
   const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
   const [confirmedAppointment, setConfirmedAppointment] = useState<{ emailSent: boolean; reviewToken: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -21,6 +23,11 @@ export default function Booking() {
     if (!id) return
     api.getDoctor(id).catch(() => null).then((d) => setDoctor(d))
   }, [id])
+
+  useEffect(() => {
+    if (!patient) return
+    setForm((f) => ({ ...f, firstName: patient.firstName, lastName: patient.lastName, email: patient.email, phone: patient.phone || f.phone }))
+  }, [patient])
 
   useEffect(() => {
     if (!id || !slotId) navigate('/search', { replace: true })
@@ -37,16 +44,19 @@ export default function Booking() {
     setSubmitting(true)
     setError(null)
     try {
-      const appointment = await api.bookAppointment({
-        doctorId: id!,
-        slotId: Number(slotId),
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        phone: form.phone,
-        reason: form.reason,
-        newPatient: form.newPatient,
-      })
+      const appointment = await api.bookAppointment(
+        {
+          doctorId: id!,
+          slotId: Number(slotId),
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          reason: form.reason,
+          newPatient: form.newPatient,
+        },
+        patientToken ?? undefined,
+      )
       setConfirmedAppointment({ emailSent: appointment.emailSent, reviewToken: appointment.review_token })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
@@ -95,6 +105,13 @@ export default function Booking() {
         <Link to={`/doctor/${doctor.id}`} className="text-sm font-medium text-brand-600 hover:underline">
           &larr; Back to profile
         </Link>
+
+        {!patient && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-600">
+            <span>Log in to track this booking and get updates in one place.</span>
+            <Link to="/patient/login" className="font-semibold text-brand-600 hover:underline">Log in</Link>
+          </div>
+        )}
 
         <div className="mt-4 rounded-2xl border border-ink-100 bg-white p-6">
           <div className="flex items-center gap-4">

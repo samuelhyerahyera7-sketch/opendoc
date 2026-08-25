@@ -7,6 +7,7 @@ import appointmentsRouter from './routes/appointments.mjs'
 import filesRouter from './routes/files.mjs'
 import adminRouter from './routes/admin.mjs'
 import notificationsRouter from './routes/notifications.mjs'
+import patientsRouter from './routes/patients.mjs'
 import sitemapRouter from './routes/sitemap.mjs'
 
 // Schema creation always runs once per instance (memoized). Demo data
@@ -41,6 +42,7 @@ app.use('/api', appointmentsRouter)
 app.use('/api', filesRouter)
 app.use('/api', adminRouter)
 app.use('/api', notificationsRouter)
+app.use('/api', patientsRouter)
 app.use(sitemapRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))

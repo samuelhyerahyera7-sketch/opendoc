@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { api, type Notification } from '../api/client'
+import { api, type Notification, type PatientNotification } from '../api/client'
+
+type Item = Notification | PatientNotification
 
 function timeAgo(iso: string): string {
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -13,21 +15,38 @@ function timeAgo(iso: string): string {
   return `${days}d ago`
 }
 
-export default function NotificationBell({ token }: { token: string }) {
+const ENDPOINTS = {
+  doctor: {
+    getUnreadCount: api.getUnreadNotificationCount,
+    getNotifications: api.getNotifications,
+    markRead: api.markNotificationRead,
+    markAllRead: api.markAllNotificationsRead,
+  },
+  patient: {
+    getUnreadCount: api.getPatientUnreadNotificationCount,
+    getNotifications: api.getPatientNotifications,
+    markRead: api.markPatientNotificationRead,
+    markAllRead: api.markAllPatientNotificationsRead,
+  },
+}
+
+export default function NotificationBell({ token, variant = 'doctor' }: { token: string; variant?: 'doctor' | 'patient' }) {
   const [open, setOpen] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<Item[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const endpoints = ENDPOINTS[variant]
 
   function loadUnreadCount() {
-    api.getUnreadNotificationCount(token).then((r) => setUnreadCount(r.count)).catch(() => {})
+    endpoints.getUnreadCount(token).then((r) => setUnreadCount(r.count)).catch(() => {})
   }
 
   useEffect(() => {
     loadUnreadCount()
     const interval = setInterval(loadUnreadCount, 30000)
     return () => clearInterval(interval)
-  }, [token])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, variant])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -40,17 +59,17 @@ export default function NotificationBell({ token }: { token: string }) {
   async function handleOpen() {
     setOpen((v) => !v)
     if (!open) {
-      const list = await api.getNotifications(token)
+      const list = await endpoints.getNotifications(token)
       setNotifications(list)
     }
   }
 
-  async function handleMarkRead(n: Notification) {
+  async function handleMarkRead(n: Item) {
     if (n.read_at) return
     setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)))
     setUnreadCount((c) => Math.max(0, c - 1))
     try {
-      await api.markNotificationRead(token, n.id)
+      await endpoints.markRead(token, n.id)
     } catch {
       // ignore
     }
@@ -60,7 +79,7 @@ export default function NotificationBell({ token }: { token: string }) {
     setNotifications((prev) => prev.map((x) => ({ ...x, read_at: x.read_at || new Date().toISOString() })))
     setUnreadCount(0)
     try {
-      await api.markAllNotificationsRead(token)
+      await endpoints.markAllRead(token)
     } catch {
       // ignore
     }

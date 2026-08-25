@@ -1,13 +1,13 @@
 import { Router } from 'express'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
-import { requireAuth } from '../auth.mjs'
+import { requireAuth, optionalPatientAuth } from '../auth.mjs'
 import { sendEmail, appointmentConfirmationEmail, newBookingAlertEmail } from '../email.mjs'
-import { notify } from '../notifications.mjs'
+import { notify, notifyPatient } from '../notifications.mjs'
 
 const router = Router()
 
-router.post('/appointments', async (req, res) => {
+router.post('/appointments', optionalPatientAuth, async (req, res) => {
   const { doctorId, slotId, firstName, lastName, email, phone, reason, newPatient } = req.body
 
   if (!doctorId || !slotId || !firstName || !lastName || !email || !phone) {
@@ -39,9 +39,9 @@ router.post('/appointments', async (req, res) => {
     }
     await client.query(
       `INSERT INTO appointments
-        (id, doctor_id, slot_id, patient_first_name, patient_last_name, patient_email, patient_phone, reason, new_patient, day_label, time_label, review_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [id, doctorId, slotId, firstName, lastName, email, phone, reason || '', !!newPatient, slot.day_label, slot.time_label, reviewToken],
+        (id, doctor_id, slot_id, patient_first_name, patient_last_name, patient_email, patient_phone, reason, new_patient, day_label, time_label, review_token, patient_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id, doctorId, slotId, firstName, lastName, email, phone, reason || '', !!newPatient, slot.day_label, slot.time_label, reviewToken, req.patientId],
     )
     await client.query('COMMIT')
   } catch (err) {
@@ -76,6 +76,16 @@ router.post('/appointments', async (req, res) => {
     `${slot.day_label} at ${slot.time_label}${reason ? ` — ${reason}` : ''}`,
     '/provider/dashboard',
   )
+
+  if (req.patientId) {
+    await notifyPatient(
+      req.patientId,
+      'appointment_confirmed',
+      `Appointment confirmed with ${doctor.name}, ${doctor.credentials}`,
+      `${slot.day_label} at ${slot.time_label}`,
+      '/patient/dashboard',
+    )
+  }
 
   const { rows } = await pool.query('SELECT * FROM appointments WHERE id = $1', [id])
   res.status(201).json({ ...rows[0], emailSent: confirmationResult.sent })

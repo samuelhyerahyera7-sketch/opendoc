@@ -80,6 +80,33 @@ export type Notification = {
   created_at: string
 }
 
+export type Patient = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+}
+
+export type PatientAppointment = Appointment & {
+  doctor_name: string
+  doctor_credentials: string
+  doctor_specialty: string
+  doctor_photo: string
+  doctor_address: string
+}
+
+export type PatientNotification = {
+  id: string
+  patient_id: string
+  type: string
+  title: string
+  body: string
+  link: string | null
+  read_at: string | null
+  created_at: string
+}
+
 export type DirectoryDoctor = {
   id: string
   name: string
@@ -200,16 +227,24 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  bookAppointment: (payload: {
-    doctorId: string
-    slotId: number
-    firstName: string
-    lastName: string
-    email: string
-    phone: string
-    reason?: string
-    newPatient?: boolean
-  }) => request<Appointment & { emailSent: boolean }>('/appointments', { method: 'POST', body: JSON.stringify(payload) }),
+  bookAppointment: (
+    payload: {
+      doctorId: string
+      slotId: number
+      firstName: string
+      lastName: string
+      email: string
+      phone: string
+      reason?: string
+      newPatient?: boolean
+    },
+    patientToken?: string,
+  ) =>
+    request<Appointment & { emailSent: boolean }>('/appointments', {
+      method: 'POST',
+      headers: patientToken ? authHeaders(patientToken) : undefined,
+      body: JSON.stringify(payload),
+    }),
 
   getMyAppointments: (token: string) => request<Appointment[]>('/doctors/me/appointments', { headers: authHeaders(token) }),
 
@@ -274,6 +309,29 @@ export const api = {
 
   markAllNotificationsRead: (token: string) =>
     request<void>('/doctors/me/notifications/read-all', { method: 'POST', headers: authHeaders(token) }),
+
+  registerPatient: (payload: { firstName: string; lastName: string; email: string; password: string; phone?: string }) =>
+    request<{ token: string; patient: Patient }>('/patients/register', { method: 'POST', body: JSON.stringify(payload) }),
+
+  loginPatient: (email: string, password: string) =>
+    request<{ token: string; patient: Patient }>('/patients/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
+  getMyPatientProfile: (token: string) => request<Patient>('/patients/me', { headers: authHeaders(token) }),
+
+  getMyPatientAppointments: (token: string) =>
+    request<PatientAppointment[]>('/patients/me/appointments', { headers: authHeaders(token) }),
+
+  getPatientNotifications: (token: string) =>
+    request<PatientNotification[]>('/patients/me/notifications', { headers: authHeaders(token) }),
+
+  getPatientUnreadNotificationCount: (token: string) =>
+    request<{ count: number }>('/patients/me/notifications/unread-count', { headers: authHeaders(token) }),
+
+  markPatientNotificationRead: (token: string, id: string) =>
+    request<void>(`/patients/me/notifications/${id}/read`, { method: 'POST', headers: authHeaders(token) }),
+
+  markAllPatientNotificationsRead: (token: string) =>
+    request<void>('/patients/me/notifications/read-all', { method: 'POST', headers: authHeaders(token) }),
 
   admin: {
     getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),

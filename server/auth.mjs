@@ -43,6 +43,44 @@ export async function requireAuth(req, res, next) {
   next()
 }
 
+export async function createPatientSession(patientId) {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
+  await pool.query('INSERT INTO patient_sessions (token, patient_id, expires_at) VALUES ($1, $2, $3)', [token, patientId, expiresAt])
+  return token
+}
+
+export async function getPatientIdForToken(token) {
+  if (!token) return null
+  const { rows } = await pool.query('SELECT patient_id, expires_at FROM patient_sessions WHERE token = $1', [token])
+  const row = rows[0]
+  if (!row) return null
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await pool.query('DELETE FROM patient_sessions WHERE token = $1', [token])
+    return null
+  }
+  return row.patient_id
+}
+
+export async function requirePatientAuth(req, res, next) {
+  const header = req.headers.authorization || ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null
+  const patientId = await getPatientIdForToken(token)
+  if (!patientId) return res.status(401).json({ error: 'Not authenticated' })
+  req.patientId = patientId
+  next()
+}
+
+// Optional variant for the booking endpoint: attaches req.patientId when a
+// valid patient session is present, but never blocks the request — guest
+// booking (no account) stays fully supported.
+export async function optionalPatientAuth(req, res, next) {
+  const header = req.headers.authorization || ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null
+  req.patientId = await getPatientIdForToken(token)
+  next()
+}
+
 const ACTION_TOKEN_TTL_MS = {
   verify_email: 1000 * 60 * 60 * 24, // 24 hours
   reset_password: 1000 * 60 * 60, // 1 hour

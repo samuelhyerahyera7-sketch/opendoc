@@ -68,6 +68,23 @@ export async function initSchema() {
       expires_at TIMESTAMPTZ NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS patients (
+      id TEXT PRIMARY KEY,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      phone TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS patient_sessions (
+      token TEXT PRIMARY KEY,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS appointments (
       id TEXT PRIMARY KEY,
       doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
@@ -86,6 +103,7 @@ export async function initSchema() {
     );
 
     ALTER TABLE appointments ADD COLUMN IF NOT EXISTS review_token TEXT UNIQUE;
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_id TEXT REFERENCES patients(id) ON DELETE SET NULL;
 
     CREATE TABLE IF NOT EXISTS patient_files (
       id TEXT PRIMARY KEY,
@@ -147,6 +165,21 @@ export async function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS notifications_doctor_idx ON notifications(doctor_id, created_at DESC);
+
+    -- In-app notifications for patients: booking confirmations, and future
+    -- doctor-initiated changes (reschedule/cancel) once those exist.
+    CREATE TABLE IF NOT EXISTS patient_notifications (
+      id TEXT PRIMARY KEY,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      link TEXT,
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS patient_notifications_patient_idx ON patient_notifications(patient_id, created_at DESC);
   `)
 }
 

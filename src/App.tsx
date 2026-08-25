@@ -22,6 +22,10 @@ import ForgotPassword from './pages/provider/ForgotPassword'
 import ResetPassword from './pages/provider/ResetPassword'
 import VerifyEmail from './pages/provider/VerifyEmail'
 import { DoctorAuthProvider } from './context/DoctorAuthContext'
+import { PatientAuthProvider } from './context/PatientAuthContext'
+import PatientSignup from './pages/patient/PatientSignup'
+import PatientLogin from './pages/patient/PatientLogin'
+import PatientDashboard from './pages/patient/PatientDashboard'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -35,32 +39,37 @@ function App() {
   return (
     <BrowserRouter>
       <DoctorAuthProvider>
-        <ScrollToTop />
-        <Header />
-        <main className="flex flex-1 flex-col">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/search" element={<SearchResults />} />
-            <Route path="/doctor/:id" element={<DoctorProfile />} />
-            <Route path="/booking/:id" element={<Booking />} />
-            <Route path="/review/:token" element={<ReviewPage />} />
-            <Route path="/medical-aid" element={<MedicalAidHub />} />
-            <Route path="/medical-aid/:slug" element={<MedicalAidSchemePage />} />
-            <Route path="/doctors" element={<DoctorsDirectory />} />
-            <Route path="/doctors/:specialtySlug/:citySlug" element={<SpecialtyCityPage />} />
-            <Route path="/for-providers" element={<ForProviders />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/provider/signup" element={<ProviderSignup />} />
-            <Route path="/provider/login" element={<ProviderLogin />} />
-            <Route path="/provider/forgot-password" element={<ForgotPassword />} />
-            <Route path="/provider/reset-password" element={<ResetPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/provider/dashboard" element={<ProviderDashboard />} />
-          </Routes>
-        </main>
-        <Footer />
+        <PatientAuthProvider>
+          <ScrollToTop />
+          <Header />
+          <main className="flex flex-1 flex-col">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/search" element={<SearchResults />} />
+              <Route path="/doctor/:id" element={<DoctorProfile />} />
+              <Route path="/booking/:id" element={<Booking />} />
+              <Route path="/review/:token" element={<ReviewPage />} />
+              <Route path="/medical-aid" element={<MedicalAidHub />} />
+              <Route path="/medical-aid/:slug" element={<MedicalAidSchemePage />} />
+              <Route path="/doctors" element={<DoctorsDirectory />} />
+              <Route path="/doctors/:specialtySlug/:citySlug" element={<SpecialtyCityPage />} />
+              <Route path="/for-providers" element={<ForProviders />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/provider/signup" element={<ProviderSignup />} />
+              <Route path="/provider/login" element={<ProviderLogin />} />
+              <Route path="/provider/forgot-password" element={<ForgotPassword />} />
+              <Route path="/provider/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/provider/dashboard" element={<ProviderDashboard />} />
+              <Route path="/patient/signup" element={<PatientSignup />} />
+              <Route path="/patient/login" element={<PatientLogin />} />
+              <Route path="/patient/dashboard" element={<PatientDashboard />} />
+            </Routes>
+          </main>
+          <Footer />
+        </PatientAuthProvider>
       </DoctorAuthProvider>
     </BrowserRouter>
   )
