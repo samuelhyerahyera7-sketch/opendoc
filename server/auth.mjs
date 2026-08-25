@@ -81,6 +81,46 @@ export async function optionalPatientAuth(req, res, next) {
   next()
 }
 
+export async function createPatientActionToken(patientId, purpose) {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + ACTION_TOKEN_TTL_MS[purpose])
+  await pool.query('INSERT INTO patient_action_tokens (token, patient_id, purpose, expires_at) VALUES ($1, $2, $3, $4)', [token, patientId, purpose, expiresAt])
+  return token
+}
+
+export async function consumePatientActionToken(token, purpose) {
+  const { rows } = await pool.query(
+    'SELECT patient_id, expires_at, used_at FROM patient_action_tokens WHERE token = $1 AND purpose = $2',
+    [token, purpose],
+  )
+  const row = rows[0]
+  if (!row) return null
+  if (row.used_at) return null
+  if (new Date(row.expires_at).getTime() < Date.now()) return null
+  await pool.query('UPDATE patient_action_tokens SET used_at = now() WHERE token = $1', [token])
+  return row.patient_id
+}
+
+// Cancel/reschedule can be initiated by either the doctor or the patient on
+// an appointment, so this tries both token types against the same bearer
+// token and attaches whichever one resolves (never both — the two session
+// tables are independent, so a token only ever matches one).
+export async function requireDoctorOrPatientAuth(req, res, next) {
+  const header = req.headers.authorization || ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null
+  const doctorId = await getDoctorIdForToken(token)
+  if (doctorId) {
+    req.doctorId = doctorId
+    return next()
+  }
+  const patientId = await getPatientIdForToken(token)
+  if (patientId) {
+    req.patientId = patientId
+    return next()
+  }
+  return res.status(401).json({ error: 'Not authenticated' })
+}
+
 const ACTION_TOKEN_TTL_MS = {
   verify_email: 1000 * 60 * 60 * 24, // 24 hours
   reset_password: 1000 * 60 * 60, // 1 hour

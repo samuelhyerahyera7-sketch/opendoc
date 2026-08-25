@@ -26,6 +26,9 @@ import { PatientAuthProvider } from './context/PatientAuthContext'
 import PatientSignup from './pages/patient/PatientSignup'
 import PatientLogin from './pages/patient/PatientLogin'
 import PatientDashboard from './pages/patient/PatientDashboard'
+import PatientForgotPassword from './pages/patient/PatientForgotPassword'
+import PatientResetPassword from './pages/patient/PatientResetPassword'
+import PatientVerifyEmail from './pages/patient/PatientVerifyEmail'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -65,6 +68,9 @@ function App() {
               <Route path="/provider/dashboard" element={<ProviderDashboard />} />
               <Route path="/patient/signup" element={<PatientSignup />} />
               <Route path="/patient/login" element={<PatientLogin />} />
+              <Route path="/patient/forgot-password" element={<PatientForgotPassword />} />
+              <Route path="/patient/reset-password" element={<PatientResetPassword />} />
+              <Route path="/patient/verify-email" element={<PatientVerifyEmail />} />
               <Route path="/patient/dashboard" element={<PatientDashboard />} />
             </Routes>
           </main>

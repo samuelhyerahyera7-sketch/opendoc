@@ -51,7 +51,12 @@ export default function PatientLogin() {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-700">Password</label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="block text-sm font-medium text-ink-700">Password</label>
+              <Link to="/patient/forgot-password" className="text-xs font-semibold text-brand-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <input
               required
               type="password"

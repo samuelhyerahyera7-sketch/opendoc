@@ -114,9 +114,11 @@ function AppointmentsPanel({ token }: { token: string }) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  function reload() {
     api.getMyAppointments(token).then(setAppointments).finally(() => setLoading(false))
-  }, [token])
+  }
+
+  useEffect(reload, [token])
 
   if (loading) return <p className="text-ink-400">Loading appointments…</p>
 
@@ -132,21 +134,120 @@ function AppointmentsPanel({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-3">
       {appointments.map((a) => (
-        <div key={a.id} className="rounded-2xl border border-ink-100 bg-white p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-bold text-ink-900">{a.patient_first_name} {a.patient_last_name}</p>
-            <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-              {a.day_label} at {a.time_label}
-            </span>
-          </div>
-          <div className="mt-2 grid gap-1 text-sm text-ink-500 sm:grid-cols-2">
-            <p>{a.patient_email}</p>
-            <p>{a.patient_phone}</p>
-          </div>
-          {a.reason && <p className="mt-2 text-sm text-ink-600">Reason: {a.reason}</p>}
-          {!!a.new_patient && <p className="mt-1 text-xs font-medium text-accent-600">New patient</p>}
-        </div>
+        <DoctorAppointmentRow key={a.id} appointment={a} token={token} onChanged={reload} />
       ))}
+    </div>
+  )
+}
+
+function DoctorAppointmentRow({
+  appointment,
+  token,
+  onChanged,
+}: {
+  appointment: Appointment
+  token: string
+  onChanged: () => void
+}) {
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [openSlots, setOpenSlots] = useState<{ id: number; day: string; time: string }[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const isCancelled = appointment.status === 'cancelled'
+
+  async function handleCancel() {
+    if (!window.confirm(`Cancel the appointment with ${appointment.patient_first_name} ${appointment.patient_last_name}?`)) return
+    setBusy(true)
+    setError(null)
+    try {
+      await api.cancelAppointment(token, appointment.id)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not cancel this appointment.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function openReschedule() {
+    setShowReschedule((v) => !v)
+    if (!openSlots) {
+      const profile = await api.getMyProfile(token).catch(() => null)
+      setOpenSlots(profile?.slots ?? [])
+    }
+  }
+
+  async function handleReschedule(slotId: number) {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.rescheduleAppointment(token, appointment.id, slotId)
+      setShowReschedule(false)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not move this appointment to that time.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={`rounded-2xl border bg-white p-5 ${isCancelled ? 'border-ink-100 opacity-60' : 'border-ink-100'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-bold text-ink-900">{appointment.patient_first_name} {appointment.patient_last_name}</p>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCancelled ? 'bg-ink-100 text-ink-500' : 'bg-brand-50 text-brand-700'}`}>
+          {isCancelled ? 'Cancelled' : `${appointment.day_label} at ${appointment.time_label}`}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-1 text-sm text-ink-500 sm:grid-cols-2">
+        <p>{appointment.patient_email}</p>
+        <p>{appointment.patient_phone}</p>
+      </div>
+      {appointment.reason && <p className="mt-2 text-sm text-ink-600">Reason: {appointment.reason}</p>}
+      {!!appointment.new_patient && <p className="mt-1 text-xs font-medium text-accent-600">New patient</p>}
+
+      {error && <p className="mt-3 text-xs text-accent-700">{error}</p>}
+
+      {!isCancelled && (
+        <div className="mt-4 flex gap-2 border-t border-ink-50 pt-3">
+          <button
+            onClick={openReschedule}
+            disabled={busy}
+            className="rounded-full border border-ink-200 px-4 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+          >
+            Reschedule
+          </button>
+          <button
+            onClick={handleCancel}
+            disabled={busy}
+            className="rounded-full border border-accent-200 px-4 py-1.5 text-xs font-semibold text-accent-700 hover:bg-accent-50 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {showReschedule && (
+        <div className="mt-3 rounded-xl bg-ink-50 p-4">
+          {!openSlots ? (
+            <p className="text-xs text-ink-400">Loading your open time slots…</p>
+          ) : openSlots.length === 0 ? (
+            <p className="text-xs text-ink-500">You have no other open time slots. Add one in the Schedule tab first.</p>
+          ) : (
+            <select
+              defaultValue=""
+              disabled={busy}
+              onChange={(e) => e.target.value && handleReschedule(Number(e.target.value))}
+              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
+            >
+              <option value="" disabled>Move to a new time…</option>
+              {openSlots.map((s) => (
+                <option key={s.id} value={s.id}>{s.day} at {s.time}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
     </div>
   )
 }

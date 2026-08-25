@@ -75,14 +75,27 @@ export async function initSchema() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       phone TEXT,
+      email_verified BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    ALTER TABLE patients ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS patient_sessions (
       token TEXT PRIMARY KEY,
       patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ DEFAULT now(),
       expires_at TIMESTAMPTZ NOT NULL
+    );
+
+    -- Single-use tokens for patient email verification and password reset,
+    -- mirroring action_tokens (which is doctor-only).
+    CREATE TABLE IF NOT EXISTS patient_action_tokens (
+      token TEXT PRIMARY KEY,
+      patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ
     );
 
     CREATE TABLE IF NOT EXISTS appointments (

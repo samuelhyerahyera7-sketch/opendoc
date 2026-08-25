@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
-import { requireAuth, optionalPatientAuth } from '../auth.mjs'
-import { sendEmail, appointmentConfirmationEmail, newBookingAlertEmail } from '../email.mjs'
+import { requireAuth, optionalPatientAuth, requireDoctorOrPatientAuth } from '../auth.mjs'
+import { sendEmail, appointmentConfirmationEmail, newBookingAlertEmail, appointmentCancelledEmail, appointmentRescheduledEmail } from '../email.mjs'
 import { notify, notifyPatient } from '../notifications.mjs'
 
 const router = Router()
@@ -94,6 +94,136 @@ router.post('/appointments', optionalPatientAuth, async (req, res) => {
 router.get('/doctors/me/appointments', requireAuth, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM appointments WHERE doctor_id = $1 ORDER BY created_at DESC', [req.doctorId])
   res.json(rows)
+})
+
+// Cancel and reschedule can be initiated by either party — the doctor
+// managing their schedule, or the patient who booked (if they were logged
+// in when they did). A guest booking (no account) can't self-serve either
+// action yet; that would need its own token-based link like reviews have.
+function assertAppointmentAccess(req, res, appt) {
+  const isDoctor = req.doctorId && req.doctorId === appt.doctor_id
+  const isPatient = req.patientId && req.patientId === appt.patient_id
+  if (!isDoctor && !isPatient) {
+    res.status(403).json({ error: 'You do not have access to this appointment' })
+    return false
+  }
+  return true
+}
+
+router.post('/appointments/:id/cancel', requireDoctorOrPatientAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT a.*, d.name as doctor_name, d.credentials as doctor_credentials, d.email as doctor_email
+     FROM appointments a JOIN doctors d ON d.id = a.doctor_id WHERE a.id = $1`,
+    [req.params.id],
+  )
+  const appt = rows[0]
+  if (!appt) return res.status(404).json({ error: 'Appointment not found' })
+  if (!assertAppointmentAccess(req, res, appt)) return
+  if (appt.status === 'cancelled') return res.status(409).json({ error: 'This appointment is already cancelled' })
+
+  await pool.query('UPDATE appointments SET status = $1 WHERE id = $2', ['cancelled', appt.id])
+  await pool.query('UPDATE doctor_slots SET is_booked = FALSE WHERE id = $1', [appt.slot_id])
+
+  const cancelledByDoctor = !!req.doctorId
+  const doctorName = `${appt.doctor_name}, ${appt.doctor_credentials}`
+  const patientName = `${appt.patient_first_name} ${appt.patient_last_name}`
+
+  if (cancelledByDoctor) {
+    const { subject, html } = appointmentCancelledEmail({
+      recipientName: appt.patient_first_name,
+      doctorName,
+      patientName,
+      day: appt.day_label,
+      time: appt.time_label,
+      cancelledByDoctor: true,
+    })
+    await sendEmail({ to: appt.patient_email, subject, html })
+    if (appt.patient_id) {
+      await notifyPatient(appt.patient_id, 'appointment_cancelled', `Appointment cancelled by ${doctorName}`, `${appt.day_label} at ${appt.time_label}`, '/patient/dashboard')
+    }
+  } else {
+    const { subject, html } = appointmentCancelledEmail({
+      recipientName: appt.doctor_name.split(' ')[0],
+      doctorName,
+      patientName,
+      day: appt.day_label,
+      time: appt.time_label,
+      cancelledByDoctor: false,
+    })
+    await sendEmail({ to: appt.doctor_email, subject, html })
+    await notify(appt.doctor_id, 'appointment_cancelled', `${patientName} cancelled their appointment`, `${appt.day_label} at ${appt.time_label}`, '/provider/dashboard')
+  }
+
+  res.json({ ok: true })
+})
+
+router.post('/appointments/:id/reschedule', requireDoctorOrPatientAuth, async (req, res) => {
+  const { newSlotId } = req.body
+  if (!newSlotId) return res.status(400).json({ error: 'newSlotId is required' })
+
+  const { rows } = await pool.query(
+    `SELECT a.*, d.name as doctor_name, d.credentials as doctor_credentials, d.email as doctor_email
+     FROM appointments a JOIN doctors d ON d.id = a.doctor_id WHERE a.id = $1`,
+    [req.params.id],
+  )
+  const appt = rows[0]
+  if (!appt) return res.status(404).json({ error: 'Appointment not found' })
+  if (!assertAppointmentAccess(req, res, appt)) return
+  if (appt.status === 'cancelled') return res.status(409).json({ error: 'This appointment is cancelled' })
+
+  const { rows: slotRows } = await pool.query('SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2', [newSlotId, appt.doctor_id])
+  const newSlot = slotRows[0]
+  if (!newSlot) return res.status(404).json({ error: 'That time slot could not be found' })
+  if (newSlot.is_booked) return res.status(409).json({ error: 'That time slot is already booked' })
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const bookResult = await client.query('UPDATE doctor_slots SET is_booked = TRUE WHERE id = $1 AND is_booked = FALSE', [newSlotId])
+    if (bookResult.rowCount === 0) {
+      await client.query('ROLLBACK')
+      return res.status(409).json({ error: 'That time slot was just booked by someone else' })
+    }
+    await client.query('UPDATE doctor_slots SET is_booked = FALSE WHERE id = $1', [appt.slot_id])
+    await client.query(
+      'UPDATE appointments SET slot_id = $1, day_label = $2, time_label = $3 WHERE id = $4',
+      [newSlotId, newSlot.day_label, newSlot.time_label, appt.id],
+    )
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+
+  const rescheduledByDoctor = !!req.doctorId
+  const doctorName = `${appt.doctor_name}, ${appt.doctor_credentials}`
+  const patientName = `${appt.patient_first_name} ${appt.patient_last_name}`
+  const emailArgs = {
+    doctorName,
+    patientName,
+    oldDay: appt.day_label,
+    oldTime: appt.time_label,
+    newDay: newSlot.day_label,
+    newTime: newSlot.time_label,
+    rescheduledByDoctor,
+  }
+
+  if (rescheduledByDoctor) {
+    const { subject, html } = appointmentRescheduledEmail({ ...emailArgs, recipientName: appt.patient_first_name })
+    await sendEmail({ to: appt.patient_email, subject, html })
+    if (appt.patient_id) {
+      await notifyPatient(appt.patient_id, 'appointment_rescheduled', `Appointment rescheduled with ${doctorName}`, `Now ${newSlot.day_label} at ${newSlot.time_label}`, '/patient/dashboard')
+    }
+  } else {
+    const { subject, html } = appointmentRescheduledEmail({ ...emailArgs, recipientName: appt.doctor_name.split(' ')[0] })
+    await sendEmail({ to: appt.doctor_email, subject, html })
+    await notify(appt.doctor_id, 'appointment_rescheduled', `${patientName} rescheduled their appointment`, `Now ${newSlot.day_label} at ${newSlot.time_label}`, '/provider/dashboard')
+  }
+
+  const { rows: updated } = await pool.query('SELECT * FROM appointments WHERE id = $1', [appt.id])
+  res.json(updated[0])
 })
 
 router.post('/doctors/me/slots', requireAuth, async (req, res) => {

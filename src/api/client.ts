@@ -86,6 +86,7 @@ export type Patient = {
   lastName: string
   email: string
   phone: string
+  emailVerified: boolean
 }
 
 export type PatientAppointment = Appointment & {
@@ -248,6 +249,16 @@ export const api = {
 
   getMyAppointments: (token: string) => request<Appointment[]>('/doctors/me/appointments', { headers: authHeaders(token) }),
 
+  cancelAppointment: (token: string, appointmentId: string) =>
+    request<{ ok: true }>(`/appointments/${appointmentId}/cancel`, { method: 'POST', headers: authHeaders(token) }),
+
+  rescheduleAppointment: (token: string, appointmentId: string, newSlotId: number) =>
+    request<Appointment>(`/appointments/${appointmentId}/reschedule`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ newSlotId }),
+    }),
+
   addSlot: (token: string, day: string, time: string) =>
     request<{ id: number; day: string; time: string }>('/doctors/me/slots', {
       method: 'POST',
@@ -332,6 +343,20 @@ export const api = {
 
   markAllPatientNotificationsRead: (token: string) =>
     request<void>('/patients/me/notifications/read-all', { method: 'POST', headers: authHeaders(token) }),
+
+  verifyPatientEmail: (token: string) => request<{ ok: true }>(`/patients/verify-email?token=${encodeURIComponent(token)}`),
+
+  resendPatientVerification: (authToken: string) =>
+    request<{ ok: true; emailSent?: boolean; alreadyVerified?: boolean }>('/patients/resend-verification', {
+      method: 'POST',
+      headers: authHeaders(authToken),
+    }),
+
+  forgotPatientPassword: (email: string) =>
+    request<{ ok: true }>('/patients/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  resetPatientPassword: (token: string, password: string) =>
+    request<{ ok: true }>('/patients/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
 
   admin: {
     getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),
