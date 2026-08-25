@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { footerMedicalAids, specialtyIcons } from '../data/staticData'
+import { footerMedicalAids, specialtyIcons, slugifySpecialty } from '../data/staticData'
 import { slugifyMedicalAid } from '../data/medicalAids'
+import { metros } from '../data/metros'
 
 const specialties = Object.keys(specialtyIcons).map((name) => ({ name }))
+const featuredMetro = metros[0]
 
 export default function Footer() {
   return (
@@ -27,11 +29,12 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               {specialties.slice(0, 6).map((s) => (
                 <li key={s.name}>
-                  <Link to={`/search?q=${encodeURIComponent(s.name)}`} className="hover:text-white">
+                  <Link to={`/doctors/${slugifySpecialty(s.name)}/${featuredMetro.slug}`} className="hover:text-white">
                     {s.name}
                   </Link>
                 </li>
               ))}
+              <li><Link to="/doctors" className="font-semibold text-brand-300 hover:text-white">Browse by city &rarr;</Link></li>
             </ul>
           </div>
           <div>

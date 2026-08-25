@@ -15,6 +15,17 @@ export const specialtyIcons: Record<string, string> = {
   'Orthopedic Surgeon': '🦴',
 }
 
+export function slugifySpecialty(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
+export function findSpecialtyBySlug(slug: string): string | undefined {
+  return Object.keys(specialtyIcons).find((name) => slugifySpecialty(name) === slug)
+}
+
 // Mirrors the medical aid schemes seeded on the server — used for static
 // links (e.g. the footer) that shouldn't need a network round trip just to
 // render. The live, doctor-count-backed list comes from the API.

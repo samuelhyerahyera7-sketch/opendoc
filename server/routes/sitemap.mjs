@@ -1,11 +1,24 @@
 import { Router } from 'express'
 import pool from '../db.mjs'
 import { slugifyMedicalAid } from '../medicalAidSlugs.mjs'
+import { specialtiesList } from '../seed.mjs'
 
 const router = Router()
 const SITE_URL = 'https://opendoc.co.za'
 
-const STATIC_PATHS = ['/', '/search', '/medical-aid', '/medical-aid/cash', '/for-providers', '/privacy', '/terms']
+const STATIC_PATHS = ['/', '/search', '/medical-aid', '/medical-aid/cash', '/for-providers', '/privacy', '/terms', '/doctors']
+
+const METROS = [
+  'johannesburg', 'cape-town', 'pretoria', 'durban',
+  'ekurhuleni', 'gqeberha', 'east-london', 'bloemfontein',
+]
+
+function slugifySpecialty(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
 
 router.get('/sitemap.xml', async (req, res) => {
   const { rows: doctors } = await pool.query(
@@ -15,12 +28,20 @@ router.get('/sitemap.xml', async (req, res) => {
     'SELECT DISTINCT insurance FROM doctor_insurances',
   )
 
+  const specialtyCityUrls = specialtiesList.flatMap((s) =>
+    METROS.map((metroSlug) => ({
+      loc: `${SITE_URL}/doctors/${slugifySpecialty(s.name)}/${metroSlug}`,
+      priority: '0.6',
+    })),
+  )
+
   const urls = [
     ...STATIC_PATHS.map((p) => ({ loc: `${SITE_URL}${p}`, priority: p === '/' ? '1.0' : '0.8' })),
     ...insuranceRows.map((r) => ({
       loc: `${SITE_URL}/medical-aid/${slugifyMedicalAid(r.insurance)}`,
       priority: '0.7',
     })),
+    ...specialtyCityUrls,
     ...doctors.map((d) => ({
       loc: `${SITE_URL}/doctor/${d.id}`,
       lastmod: d.created_at ? new Date(d.created_at).toISOString() : undefined,

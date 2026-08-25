@@ -9,6 +9,8 @@ import Booking from './pages/Booking'
 import ReviewPage from './pages/ReviewPage'
 import MedicalAidHub from './pages/MedicalAidHub'
 import MedicalAidSchemePage from './pages/MedicalAidSchemePage'
+import DoctorsDirectory from './pages/DoctorsDirectory'
+import SpecialtyCityPage from './pages/SpecialtyCityPage'
 import ForProviders from './pages/ForProviders'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
@@ -44,6 +46,8 @@ function App() {
             <Route path="/review/:token" element={<ReviewPage />} />
             <Route path="/medical-aid" element={<MedicalAidHub />} />
             <Route path="/medical-aid/:slug" element={<MedicalAidSchemePage />} />
+            <Route path="/doctors" element={<DoctorsDirectory />} />
+            <Route path="/doctors/:specialtySlug/:citySlug" element={<SpecialtyCityPage />} />
             <Route path="/for-providers" element={<ForProviders />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
