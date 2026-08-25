@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { SlidersHorizontal } from 'lucide-react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { List, Map as MapIcon, SlidersHorizontal } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DoctorCard from '../components/DoctorCard'
 import MedicalAidSelect from '../components/MedicalAidSelect'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
 
+const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
+
 type SortKey = 'relevance' | 'rating' | 'distance'
+type ViewMode = 'list' | 'map'
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
 
 export default function SearchResults() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [view, setView] = useState<ViewMode>('list')
   const q = params.get('q') ?? ''
   const loc = params.get('loc') ?? ''
   const latParam = params.get('lat')
@@ -135,15 +140,35 @@ export default function SearchResults() {
                 {loading ? 'Searching…' : `${results.length} doctor${results.length === 1 ? '' : 's'} ${q ? `for "${q}"` : 'found'}`}
                 {!loading && loc && <span className="font-normal text-ink-500"> near {loc}</span>}
               </h1>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
-              >
-                <option value="relevance">Sort: Relevance</option>
-                <option value="rating">Sort: Highest Rated</option>
-                {hasLocation && <option value="distance">Sort: Nearest</option>}
-              </select>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-lg border border-ink-200 bg-white p-0.5">
+                  <button
+                    onClick={() => setView('list')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${
+                      view === 'list' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50'
+                    }`}
+                  >
+                    <List size={13} /> List
+                  </button>
+                  <button
+                    onClick={() => setView('map')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold ${
+                      view === 'map' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-50'
+                    }`}
+                  >
+                    <MapIcon size={13} /> Map
+                  </button>
+                </div>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
+                >
+                  <option value="relevance">Sort: Relevance</option>
+                  <option value="rating">Sort: Highest Rated</option>
+                  {hasLocation && <option value="distance">Sort: Nearest</option>}
+                </select>
+              </div>
             </div>
 
             {error && (
@@ -163,11 +188,29 @@ export default function SearchResults() {
               </div>
             )}
 
-            {!error && (
+            {!error && !loading && results.length > 0 && view === 'list' && (
               <div className="flex flex-col gap-4">
                 {results.map((d) => (
                   <DoctorCard key={d.id} doctor={d} />
                 ))}
+              </div>
+            )}
+
+            {!error && !loading && results.length > 0 && view === 'map' && (
+              <div className="h-[600px]">
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center rounded-2xl border border-ink-100 bg-white text-sm text-ink-400">
+                      Loading map…
+                    </div>
+                  }
+                >
+                  <DoctorsMap
+                    doctors={results}
+                    userLocation={hasLocation ? { lat: lat as number, lng: lng as number } : undefined}
+                    onSelectDoctor={(id) => navigate(`/doctor/${id}`)}
+                  />
+                </Suspense>
               </div>
             )}
           </div>
