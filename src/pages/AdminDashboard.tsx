@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ShieldCheck, Trash2 } from 'lucide-react'
+import { ChevronDown, ShieldCheck, Trash2 } from 'lucide-react'
 import { api, ApiError, type ApiDoctor } from '../api/client'
 
 const STORAGE_KEY = 'opendoc.admin.token'
@@ -12,6 +12,7 @@ export default function AdminDashboard() {
   const [pending, setPending] = useState<ApiDoctor[] | null>(null)
   const [all, setAll] = useState<ApiDoctor[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   function load(token: string) {
     setError(null)
@@ -113,42 +114,108 @@ export default function AdminDashboard() {
         )}
 
         <div className="mt-6 flex flex-col gap-3">
-          {list?.map((d) => (
-            <div key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white p-5">
-              <div>
-                <p className="font-semibold text-ink-900">{d.name}, {d.credentials} — {d.specialty}</p>
-                <p className="text-sm text-ink-500">{d.email}</p>
-                <p className="mt-1 text-sm font-medium text-ink-700">
-                  HPCSA: {d.hpcsaNumber || '—'} &middot; <span className="capitalize">{d.verificationStatus}</span>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                {d.verificationStatus !== 'rejected' && (
+          {list?.map((d) => {
+            const expanded = expandedId === d.id
+            return (
+              <div key={d.id} className="rounded-2xl border border-ink-100 bg-white p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <button
-                    onClick={() => decide(d.id, 'reject')}
-                    className="rounded-full border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                    onClick={() => setExpandedId(expanded ? null : d.id)}
+                    className="flex flex-1 items-start gap-3 text-left"
                   >
-                    Reject
+                    <ChevronDown
+                      size={16}
+                      className={`mt-1 shrink-0 text-ink-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                    />
+                    <div>
+                      <p className="font-semibold text-ink-900">{d.name}, {d.credentials} — {d.specialty}</p>
+                      <p className="text-sm text-ink-500">{d.email}</p>
+                      <p className="mt-1 text-sm font-medium text-ink-700">
+                        HPCSA: {d.hpcsaNumber || '—'} &middot; <span className="capitalize">{d.verificationStatus}</span>
+                      </p>
+                    </div>
                   </button>
+                  <div className="flex gap-2">
+                    {d.verificationStatus !== 'rejected' && (
+                      <button
+                        onClick={() => decide(d.id, 'reject')}
+                        className="rounded-full border border-ink-200 px-4 py-2 text-xs font-semibold text-ink-600 hover:bg-ink-50"
+                      >
+                        Reject
+                      </button>
+                    )}
+                    {d.verificationStatus !== 'verified' && (
+                      <button
+                        onClick={() => decide(d.id, 'verify')}
+                        className="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+                      >
+                        Verify
+                      </button>
+                    )}
+                    <button
+                      onClick={() => remove(d.id, d.name)}
+                      title="Delete permanently"
+                      className="flex items-center gap-1.5 rounded-full border border-accent-200 px-4 py-2 text-xs font-semibold text-accent-700 hover:bg-accent-50"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                </div>
+
+                {expanded && (
+                  <div className="mt-4 flex flex-col gap-4 border-t border-ink-100 pt-4 sm:flex-row">
+                    <img src={d.photo} alt={d.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                    <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Practice address</p>
+                        <p className="text-sm text-ink-700">{d.address || '—'}{d.city ? `, ${d.city}` : ''}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Email verified</p>
+                        <p className="text-sm text-ink-700">{d.emailVerified ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Accepting new patients</p>
+                        <p className="text-sm text-ink-700">{d.acceptingNew ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Accepts cash</p>
+                        <p className="text-sm text-ink-700">{d.acceptsCash ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Languages</p>
+                        <p className="text-sm text-ink-700">{d.languages.join(', ') || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Rating</p>
+                        <p className="text-sm text-ink-700">
+                          {d.reviewCount > 0 ? `${d.rating.toFixed(1)} (${d.reviewCount} review${d.reviewCount === 1 ? '' : 's'})` : 'No reviews yet'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Education</p>
+                        {d.education.length ? (
+                          <ul className="text-sm text-ink-700">
+                            {d.education.map((e) => <li key={e}>{e}</li>)}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-ink-700">—</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-ink-400">Medical aids accepted</p>
+                        <p className="text-sm text-ink-700">{d.insurances.join(', ') || '—'}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-semibold uppercase text-ink-400">Bio</p>
+                        <p className="text-sm text-ink-700">{d.bio || '—'}</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {d.verificationStatus !== 'verified' && (
-                  <button
-                    onClick={() => decide(d.id, 'verify')}
-                    className="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
-                  >
-                    Verify
-                  </button>
-                )}
-                <button
-                  onClick={() => remove(d.id, d.name)}
-                  title="Delete permanently"
-                  className="flex items-center gap-1.5 rounded-full border border-accent-200 px-4 py-2 text-xs font-semibold text-accent-700 hover:bg-accent-50"
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
