@@ -25,9 +25,14 @@ router.get('/specialties', (req, res) => {
   res.json(specialtiesList)
 })
 
-// Full filter list for patient search: cash/self-pay first, then medical aid schemes.
-router.get('/insurances', (req, res) => {
-  res.json(insurancesList)
+// Full filter list for patient search: cash/self-pay first, then medical aid
+// schemes. Includes any custom "Other" scheme a doctor has added that isn't
+// in the fixed list, so it's actually findable in search — not just stored.
+router.get('/insurances', async (req, res) => {
+  const { rows } = await pool.query('SELECT DISTINCT insurance FROM doctor_insurances')
+  const known = new Set(medicalAidsList)
+  const extras = rows.map((r) => r.insurance).filter((name) => !known.has(name)).sort()
+  res.json([...insurancesList, ...extras])
 })
 
 // Medical aid schemes only (no cash option) — used on the provider signup form,
@@ -37,17 +42,21 @@ router.get('/medical-aids', (req, res) => {
 })
 
 // How many doctors accept each payment option — powers the medical aid hub
-// page so patients can see coverage at a glance before clicking in.
+// page so patients can see coverage at a glance before clicking in. Also
+// surfaces any custom "Other" scheme a doctor added, so it's not invisible.
 router.get('/insurances/stats', async (req, res) => {
   const [insuranceCounts, cashCount] = await Promise.all([
     pool.query('SELECT insurance, COUNT(DISTINCT doctor_id)::int as count FROM doctor_insurances GROUP BY insurance'),
     pool.query('SELECT COUNT(*)::int as count FROM doctors WHERE accepts_cash = TRUE'),
   ])
   const counts = new Map(insuranceCounts.rows.map((r) => [r.insurance, r.count]))
+  const known = new Set(medicalAidsList)
+  const extraNames = [...counts.keys()].filter((name) => !known.has(name)).sort()
 
   const stats = [
     { name: CASH_OPTION, count: cashCount.rows[0].count, isCash: true },
     ...medicalAidsList.map((name) => ({ name, count: counts.get(name) || 0, isCash: false })),
+    ...extraNames.map((name) => ({ name, count: counts.get(name) || 0, isCash: false })),
   ]
   res.json(stats)
 })
