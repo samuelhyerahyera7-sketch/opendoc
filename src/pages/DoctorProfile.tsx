@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarDays, GraduationCap, Languages, MapPin, ShieldCheck } from 'lucide-react'
 import { api, type ApiDoctor, type Review } from '../api/client'
@@ -7,6 +7,8 @@ import { MedicalAidPill } from '../components/MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
 import VerificationBadge from '../components/VerificationBadge'
 import Seo from '../components/Seo'
+
+const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
 
 export default function DoctorProfile() {
   const { id } = useParams()
@@ -137,6 +139,21 @@ export default function DoctorProfile() {
                 <p className="mt-2 text-xs text-ink-400">Self-reported by this provider — confirm coverage with your scheme before your visit.</p>
               </div>
             </section>
+
+            {doctor.lat !== null && doctor.lng !== null && (
+              <section className="rounded-2xl border border-ink-100 bg-white p-6">
+                <h2 className="text-lg font-bold text-ink-900">Location</h2>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-500">
+                  <MapPin size={14} />
+                  {doctor.address}{doctor.city ? `, ${doctor.city}` : ''}
+                </p>
+                <div className="mt-4 h-72 overflow-hidden rounded-xl">
+                  <Suspense fallback={<div className="h-full w-full animate-pulse bg-ink-50" />}>
+                    <DoctorsMap doctors={[doctor]} />
+                  </Suspense>
+                </div>
+              </section>
+            )}
 
             <section className="rounded-2xl border border-ink-100 bg-white p-6">
               <div className="flex items-center justify-between">

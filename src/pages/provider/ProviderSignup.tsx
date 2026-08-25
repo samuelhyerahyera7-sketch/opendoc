@@ -32,6 +32,7 @@ export default function ProviderSignup() {
   const [showCustomInsuranceInput, setShowCustomInsuranceInput] = useState(false)
   const [acceptsCash, setAcceptsCash] = useState(true)
   const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [addressCoords, setAddressCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [otherSpecialty, setOtherSpecialty] = useState('')
 
   const OTHER_SPECIALTY = '__other__'
@@ -67,7 +68,7 @@ export default function ProviderSignup() {
     }
     setSubmitting(true)
     try {
-      const area = cityCoords ?? findLocationByName(form.city)
+      const area = addressCoords ?? cityCoords ?? findLocationByName(form.city)
       const specialty = form.specialty === OTHER_SPECIALTY ? otherSpecialty.trim() : form.specialty
       await register({
         ...form,
@@ -190,11 +191,15 @@ export default function ProviderSignup() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink-700">Practice address</label>
-              <input
+              <LocationAutocomplete
                 value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-                className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
+                onChange={(name, location) => {
+                  setForm({ ...form, address: name })
+                  setAddressCoords(location ? { lat: location.lat, lng: location.lng } : null)
+                }}
+                placeholder="Street address, e.g. 12 Oak Street, Sandton"
               />
+              <p className="mt-1 text-xs text-ink-400">Pick a suggestion for an accurate pin on your profile map.</p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink-700">Practice area</label>
