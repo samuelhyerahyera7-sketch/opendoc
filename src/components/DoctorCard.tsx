@@ -45,14 +45,9 @@ export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
         {(doctor.insurances.length > 0 || doctor.acceptsCash) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {doctor.acceptsCash && <MedicalAidPill name={CASH_LABEL} />}
-            {doctor.insurances.slice(0, 3).map((ins) => (
+            {doctor.insurances.map((ins) => (
               <MedicalAidPill key={ins} name={ins} />
             ))}
-            {doctor.insurances.length > 3 && (
-              <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-medium text-ink-600">
-                +{doctor.insurances.length - 3} more
-              </span>
-            )}
           </div>
         )}
       </div>
