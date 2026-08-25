@@ -6,6 +6,7 @@ import StarRating from '../components/StarRating'
 import { MedicalAidPill } from '../components/MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
 import VerificationBadge from '../components/VerificationBadge'
+import Seo from '../components/Seo'
 
 export default function DoctorProfile() {
   const { id } = useParams()
@@ -47,8 +48,26 @@ export default function DoctorProfile() {
     navigate(`/booking/${doctor.id}?slotId=${selectedSlot.id}&day=${encodeURIComponent(selectedDay)}&time=${encodeURIComponent(selectedSlot.time)}`)
   }
 
+  const insuranceList = doctor.insurances.filter((i) => i !== CASH_LABEL)
+
   return (
     <div className="bg-ink-50/60">
+      <Seo
+        title={`${doctor.name}, ${doctor.credentials} — ${doctor.specialty}${doctor.city ? ` in ${doctor.city}` : ''}`}
+        description={`Book an appointment with ${doctor.name}, ${doctor.credentials} (${doctor.specialty})${doctor.city ? ` in ${doctor.city}` : ''}.${insuranceList.length ? ` Accepts ${insuranceList.slice(0, 3).join(', ')}${insuranceList.length > 3 ? ' and more' : ''}.` : ''}`}
+        path={`/doctor/${doctor.id}`}
+        image={doctor.photo}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Physician',
+          name: `${doctor.name}, ${doctor.credentials}`,
+          medicalSpecialty: doctor.specialty,
+          image: doctor.photo,
+          address: doctor.address ? { '@type': 'PostalAddress', streetAddress: doctor.address, addressLocality: doctor.city, addressCountry: 'ZA' } : undefined,
+          ...(doctor.lat && doctor.lng ? { geo: { '@type': 'GeoCoordinates', latitude: doctor.lat, longitude: doctor.lng } } : {}),
+          ...(doctor.reviewCount > 0 ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: doctor.rating, reviewCount: doctor.reviewCount } } : {}),
+        }}
+      />
       <div className="border-b border-ink-100 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 sm:flex-row">

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /provider/dashboard
+Disallow: /provider/login
+Disallow: /provider/signup
+Disallow: /booking/
+Disallow: /review/
+
+Sitemap: https://opendoc.co.za/sitemap.xml

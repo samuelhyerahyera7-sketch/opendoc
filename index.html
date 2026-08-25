@@ -7,7 +7,22 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenDoc — Find and Book Doctors Online</title>
+    <meta name="theme-color" content="#1fa898" />
+    <!--
+      Only tags that are truly page-invariant live here. Description, OG,
+      Twitter, and canonical tags are deliberately NOT duplicated here —
+      every route renders its own via <Seo> (src/components/Seo.tsx), and
+      since React can't remove or reorder tags it didn't render itself, a
+      static copy here would keep "winning" over the per-page one for any
+      tool that reads the first matching tag (including Google in some
+      cases). The tradeoff: a bot that doesn't execute JavaScript at all
+      (WhatsApp, Slack, Twitter's link-preview fetcher) only ever sees this
+      raw HTML and gets no title/description/image for ANY page — that's a
+      structural limitation of a client-rendered SPA with no server-side
+      rendering, not something fixable from this file. Fixing it properly
+      needs either an SSR framework or a bot-detecting prerender layer.
+    -->
+    <title>OpenDoc</title>
   </head>
   <body>
     <div id="root"></div>

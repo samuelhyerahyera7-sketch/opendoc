@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BarChart3, CalendarCheck2, FolderSymlink, Users } from 'lucide-react'
+import Seo from '../components/Seo'
 
 const benefits = [
   { icon: Users, title: 'Reach new patients', text: 'Get discovered by patients actively searching for care like yours, filtered by the medical aid you accept.' },
@@ -11,6 +12,11 @@ const benefits = [
 export default function ForProviders() {
   return (
     <div>
+      <Seo
+        title="List Your Practice on OpenDoc"
+        description="Join OpenDoc to reach patients searching by medical aid and location, publish real availability, and securely transfer patient files with other providers."
+        path="/for-providers"
+      />
       <section className="bg-gradient-to-b from-brand-800 to-brand-600 py-20 text-center text-white">
         <div className="mx-auto max-w-2xl px-4">
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Grow your practice with OpenDoc</h1>

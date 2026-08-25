@@ -1,6 +1,9 @@
+import Seo from '../components/Seo'
+
 export default function PrivacyPolicy() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8">
+      <Seo title="Privacy Policy" description="How OpenDoc collects, uses, and protects your personal information under South Africa's POPIA." path="/privacy" />
       <h1 className="text-3xl font-bold text-ink-900">Privacy Policy</h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: {new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 

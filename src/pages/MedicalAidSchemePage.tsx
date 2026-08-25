@@ -4,7 +4,8 @@ import { Crosshair, Loader2, ShieldCheck } from 'lucide-react'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
 import DoctorCard from '../components/DoctorCard'
 import MedicalAidLogo from '../components/MedicalAidBadge'
-import { CASH_LABEL, unslugifyMedicalAid } from '../data/medicalAids'
+import { CASH_LABEL, unslugifyMedicalAid, slugifyMedicalAid } from '../data/medicalAids'
+import Seo from '../components/Seo'
 
 export default function MedicalAidSchemePage() {
   const { slug } = useParams()
@@ -71,6 +72,15 @@ export default function MedicalAidSchemePage() {
 
   return (
     <div className="bg-ink-50/60 flex-1">
+      <Seo
+        title={isCash ? 'Doctors Accepting Cash-Paying Patients in South Africa' : `Doctors Who Accept ${name}`}
+        description={
+          isCash
+            ? 'Find and book doctors across South Africa who accept cash-paying, self-pay patients without medical aid.'
+            : `Find and book doctors across South Africa who accept ${name}. Search by specialty and location, then book your appointment online.`
+        }
+        path={`/medical-aid/${slugifyMedicalAid(name)}`}
+      />
       <div className="border-b border-ink-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
           <Link to="/medical-aid" className="text-sm font-medium text-brand-600 hover:underline">

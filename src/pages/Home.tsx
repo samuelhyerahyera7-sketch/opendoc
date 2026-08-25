@@ -5,6 +5,7 @@ import SearchBar from '../components/SearchBar'
 import MedicalAidLogo from '../components/MedicalAidBadge'
 import { api, type InsuranceStat } from '../api/client'
 import { CASH_LABEL, slugifyMedicalAid } from '../data/medicalAids'
+import Seo from '../components/Seo'
 
 export default function Home() {
   const [insuranceStats, setInsuranceStats] = useState<InsuranceStat[]>([])
@@ -21,6 +22,11 @@ export default function Home() {
 
   return (
     <>
+      <Seo
+        title="OpenDoc — Find Doctors Who Take Your Medical Aid"
+        description="Find and book doctors in South Africa who accept your medical aid — Discovery, Bonitas, Fedhealth, Momentum, and more — or pay cash. Search by specialty, location, or condition and book online."
+        path="/"
+      />
       <section className="relative overflow-hidden bg-gradient-to-b from-brand-800 via-brand-700 to-brand-600 text-white">
         <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-brand-400/20 blur-3xl" />

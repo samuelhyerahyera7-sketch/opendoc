@@ -5,6 +5,7 @@ import SearchBar from '../components/SearchBar'
 import DoctorCard from '../components/DoctorCard'
 import MedicalAidSelect from '../components/MedicalAidSelect'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
+import Seo from '../components/Seo'
 
 const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
 
@@ -63,8 +64,15 @@ export default function SearchResults() {
       .finally(() => setLoading(false))
   }, [q, insuranceFilter, acceptingOnly, sort, hasLocation, lat, lng, radiusKm])
 
+  const seoTitle = [q || 'Doctors', loc ? `near ${loc}` : null].filter(Boolean).join(' ')
+
   return (
     <div className="bg-ink-50/60">
+      <Seo
+        title={seoTitle}
+        description={`Find and book ${q || 'doctors'} in South Africa${loc ? ` near ${loc}` : ''}. Filter by medical aid, specialty, and distance.`}
+        path="/search"
+      />
       <div className="border-b border-ink-100 bg-white py-6">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SearchBar initialQuery={q} initialLocation={loc} initialLat={lat} initialLng={lng} />

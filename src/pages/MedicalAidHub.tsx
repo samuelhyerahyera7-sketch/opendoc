@@ -4,6 +4,7 @@ import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { api, type InsuranceStat } from '../api/client'
 import MedicalAidLogo from '../components/MedicalAidBadge'
 import { CASH_LABEL, slugifyMedicalAid } from '../data/medicalAids'
+import Seo from '../components/Seo'
 
 export default function MedicalAidHub() {
   const [stats, setStats] = useState<InsuranceStat[] | null>(null)
@@ -17,6 +18,11 @@ export default function MedicalAidHub() {
 
   return (
     <div className="bg-ink-50/60 flex-1">
+      <Seo
+        title="Find Doctors by Medical Aid Scheme"
+        description="Browse South African doctors by the medical aid scheme they accept — Discovery Health, Bonitas, Fedhealth, Momentum, GEMS, and more — or find cash-paying options."
+        path="/medical-aid"
+      />
       <section className="bg-gradient-to-b from-brand-800 to-brand-600 py-16 text-center text-white">
         <div className="mx-auto max-w-2xl px-4">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium ring-1 ring-white/20">

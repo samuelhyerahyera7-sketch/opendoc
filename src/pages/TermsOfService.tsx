@@ -1,6 +1,9 @@
+import Seo from '../components/Seo'
+
 export default function TermsOfService() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8">
+      <Seo title="Terms of Service" description="The terms governing use of OpenDoc for patients and healthcare providers in South Africa." path="/terms" />
       <h1 className="text-3xl font-bold text-ink-900">Terms of Service</h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: {new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
