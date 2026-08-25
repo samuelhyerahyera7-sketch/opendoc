@@ -20,6 +20,20 @@ type Tab = 'appointments' | 'schedule' | 'files'
 
 const DAY_OPTIONS = ['Today', 'Tomorrow', 'Wed', 'Thu', 'Fri', 'Sat', 'Mon']
 
+function buildTimeOptions() {
+  const times: string[] = []
+  for (let hour = 8; hour <= 17; hour++) {
+    for (const minute of [0, 30]) {
+      if (hour === 17 && minute === 30) continue
+      const period = hour < 12 ? 'AM' : 'PM'
+      const displayHour = hour > 12 ? hour - 12 : hour
+      times.push(`${String(displayHour).padStart(2, '0')}:${minute === 0 ? '00' : '30'} ${period}`)
+    }
+  }
+  return times
+}
+const TIME_OPTIONS = buildTimeOptions()
+
 export default function ProviderDashboard() {
   const { token, doctor, loading, logout, refresh } = useDoctorAuth()
   const [tab, setTab] = useState<Tab>('appointments')
@@ -154,6 +168,7 @@ function DoctorAppointmentRow({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const isCancelled = appointment.status === 'cancelled'
+  const isPending = appointment.status === 'pending_reschedule'
 
   async function handleCancel() {
     if (!window.confirm(`Cancel the appointment with ${appointment.patient_first_name} ${appointment.patient_last_name}?`)) return
@@ -169,6 +184,19 @@ function DoctorAppointmentRow({
     }
   }
 
+  async function handleWithdraw() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.withdrawReschedule(token, appointment.id)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not withdraw the proposal.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function openReschedule() {
     setShowReschedule((v) => !v)
     if (!openSlots) {
@@ -177,15 +205,15 @@ function DoctorAppointmentRow({
     }
   }
 
-  async function handleReschedule(slotId: number) {
+  async function handlePropose(slotId: number) {
     setBusy(true)
     setError(null)
     try {
-      await api.rescheduleAppointment(token, appointment.id, slotId)
+      await api.proposeReschedule(token, appointment.id, slotId)
       setShowReschedule(false)
       onChanged()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not move this appointment to that time.')
+      setError(err instanceof ApiError ? err.message : 'Could not propose that time.')
     } finally {
       setBusy(false)
     }
@@ -195,8 +223,8 @@ function DoctorAppointmentRow({
     <div className={`rounded-2xl border bg-white p-5 ${isCancelled ? 'border-ink-100 opacity-60' : 'border-ink-100'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-bold text-ink-900">{appointment.patient_first_name} {appointment.patient_last_name}</p>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCancelled ? 'bg-ink-100 text-ink-500' : 'bg-brand-50 text-brand-700'}`}>
-          {isCancelled ? 'Cancelled' : `${appointment.day_label} at ${appointment.time_label}`}
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCancelled ? 'bg-ink-100 text-ink-500' : isPending ? 'bg-accent-50 text-accent-700' : 'bg-brand-50 text-brand-700'}`}>
+          {isCancelled ? 'Cancelled' : isPending ? 'Awaiting patient approval' : `${appointment.day_label} at ${appointment.time_label}`}
         </span>
       </div>
       <div className="mt-2 grid gap-1 text-sm text-ink-500 sm:grid-cols-2">
@@ -206,17 +234,31 @@ function DoctorAppointmentRow({
       {appointment.reason && <p className="mt-2 text-sm text-ink-600">Reason: {appointment.reason}</p>}
       {!!appointment.new_patient && <p className="mt-1 text-xs font-medium text-accent-600">New patient</p>}
 
+      {isPending && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">
+          <span>
+            You proposed moving this from {appointment.day_label} at {appointment.time_label} to{' '}
+            <strong>{appointment.proposed_day_label} at {appointment.proposed_time_label}</strong> — waiting on the patient.
+          </span>
+          <button onClick={handleWithdraw} disabled={busy} className="font-semibold underline disabled:opacity-60">
+            Withdraw
+          </button>
+        </div>
+      )}
+
       {error && <p className="mt-3 text-xs text-accent-700">{error}</p>}
 
       {!isCancelled && (
         <div className="mt-4 flex gap-2 border-t border-ink-50 pt-3">
-          <button
-            onClick={openReschedule}
-            disabled={busy}
-            className="rounded-full border border-ink-200 px-4 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
-          >
-            Reschedule
-          </button>
+          {!isPending && (
+            <button
+              onClick={openReschedule}
+              disabled={busy}
+              className="rounded-full border border-ink-200 px-4 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+            >
+              Propose new time
+            </button>
+          )}
           <button
             onClick={handleCancel}
             disabled={busy}
@@ -237,10 +279,10 @@ function DoctorAppointmentRow({
             <select
               defaultValue=""
               disabled={busy}
-              onChange={(e) => e.target.value && handleReschedule(Number(e.target.value))}
+              onChange={(e) => e.target.value && handlePropose(Number(e.target.value))}
               className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
             >
-              <option value="" disabled>Move to a new time…</option>
+              <option value="" disabled>Propose a new time…</option>
               {openSlots.map((s) => (
                 <option key={s.id} value={s.id}>{s.day} at {s.time}</option>
               ))}
@@ -252,102 +294,129 @@ function DoctorAppointmentRow({
   )
 }
 
+type CalendarCell = { state: 'empty' | 'open' | 'booked'; slotId?: number }
+
 function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChanged: () => void }) {
   const [profile, setProfile] = useState<Awaited<ReturnType<typeof api.getMyProfile>> | null>(null)
-  const [day, setDay] = useState(DAY_OPTIONS[0])
-  const [time, setTime] = useState('09:00 AM')
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [busyCell, setBusyCell] = useState<string | null>(null)
 
-  function loadProfile() {
+  function load() {
     api.getMyProfile(token).then(setProfile)
+    api.getMyAppointments(token).then(setAppointments)
   }
 
-  useEffect(loadProfile, [token])
-
-  async function handleAddSlot(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setSaving(true)
-    try {
-      await api.addSlot(token, day, time)
-      loadProfile()
-      onSlotsChanged()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add that time slot.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleRemoveSlot(id: number) {
-    try {
-      await api.deleteSlot(token, id)
-      loadProfile()
-      onSlotsChanged()
-    } catch {
-      setError('Could not remove that slot — it may already be booked.')
-    }
-  }
+  useEffect(load, [token])
 
   if (!profile) return <p className="text-ink-400">Loading schedule…</p>
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="rounded-2xl border border-ink-100 bg-white p-6">
-        <h2 className="text-lg font-bold text-ink-900">Open time slots</h2>
-        <p className="mt-1 text-sm text-ink-500">Patients can book any open slot below. Booked slots disappear automatically.</p>
+  const openByKey = new Map(profile.slots.map((s) => [`${s.day}|${s.time}`, s.id]))
+  const bookedKeys = new Set(
+    appointments.filter((a) => a.status !== 'cancelled').map((a) => `${a.day_label}|${a.time_label}`),
+  )
+  const gridTimes = new Set(TIME_OPTIONS)
+  const offGridSlots = profile.slots.filter((s) => !gridTimes.has(s.time))
 
-        {profile.slots.length === 0 ? (
-          <p className="mt-6 text-sm text-ink-500">You have no open slots. Add one to start accepting bookings.</p>
-        ) : (
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            {profile.slots.map((s) => (
+  function cellFor(day: string, time: string): CalendarCell {
+    const key = `${day}|${time}`
+    if (openByKey.has(key)) return { state: 'open', slotId: openByKey.get(key) }
+    if (bookedKeys.has(key)) return { state: 'booked' }
+    return { state: 'empty' }
+  }
+
+  async function handleCellClick(day: string, time: string, cell: CalendarCell) {
+    if (cell.state === 'booked') return
+    const key = `${day}|${time}`
+    setBusyCell(key)
+    setError(null)
+    try {
+      if (cell.state === 'open' && cell.slotId) {
+        await api.deleteSlot(token, cell.slotId)
+      } else {
+        await api.addSlot(token, day, time)
+      }
+      load()
+      onSlotsChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not update that time slot.')
+    } finally {
+      setBusyCell(null)
+    }
+  }
+
+  return (
+    <div>
+      <div className="rounded-2xl border border-ink-100 bg-white p-6">
+        <h2 className="text-lg font-bold text-ink-900">Your calendar</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          Click an empty cell to open it up for booking, click an open (teal) cell to close it. Booked cells are locked.
+        </p>
+        {error && <div className="mt-3 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">{error}</div>}
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr>
+                <th className="w-20" />
+                {DAY_OPTIONS.map((d) => (
+                  <th key={d} className="pb-1 text-center font-semibold text-ink-600">{d}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {TIME_OPTIONS.map((time) => (
+                <tr key={time}>
+                  <td className="whitespace-nowrap pr-2 text-right font-medium text-ink-500">{time}</td>
+                  {DAY_OPTIONS.map((day) => {
+                    const cell = cellFor(day, time)
+                    const key = `${day}|${time}`
+                    return (
+                      <td key={day} className="p-0">
+                        <button
+                          disabled={busyCell === key || cell.state === 'booked'}
+                          onClick={() => handleCellClick(day, time, cell)}
+                          title={cell.state === 'booked' ? 'Booked' : cell.state === 'open' ? 'Click to close' : 'Click to open'}
+                          className={`h-7 w-full rounded-md border transition disabled:cursor-not-allowed ${
+                            cell.state === 'open'
+                              ? 'border-brand-500 bg-brand-500 hover:bg-brand-600'
+                              : cell.state === 'booked'
+                                ? 'border-ink-200 bg-ink-200'
+                                : 'border-ink-100 bg-white hover:border-brand-300 hover:bg-brand-50'
+                          } ${busyCell === key ? 'opacity-50' : ''}`}
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-4 text-xs text-ink-500">
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-brand-500" /> Open</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-ink-200" /> Booked</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-ink-200 bg-white" /> Not available</span>
+        </div>
+      </div>
+
+      {offGridSlots.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-6">
+          <h3 className="font-bold text-ink-900">Other open slots</h3>
+          <p className="mt-1 text-sm text-ink-500">Slots outside the standard half-hour grid (e.g. added before this calendar existed).</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {offGridSlots.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-lg border border-ink-200 px-3 py-2 text-sm">
                 <span className="font-medium text-ink-700">{s.day} &middot; {s.time}</span>
-                <button onClick={() => handleRemoveSlot(s.id)} className="text-ink-400 hover:text-accent-600">
+                <button onClick={() => handleCellClick(s.day, s.time, { state: 'open', slotId: s.id })} className="text-ink-400 hover:text-accent-600">
                   <Trash2 size={15} />
                 </button>
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      <div className="h-fit rounded-2xl border border-ink-100 bg-white p-6">
-        <h3 className="flex items-center gap-2 font-bold text-ink-900">
-          <CalendarPlus size={17} className="text-brand-500" /> Add a time slot
-        </h3>
-        {error && <div className="mt-3 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">{error}</div>}
-        <form onSubmit={handleAddSlot} className="mt-4 flex flex-col gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-600">Day</label>
-            <select
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
-            >
-              {DAY_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-600">Time</label>
-            <input
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              placeholder="e.g. 2:30 PM"
-              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="mt-1 rounded-full bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-          >
-            {saving ? 'Adding…' : 'Add slot'}
-          </button>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

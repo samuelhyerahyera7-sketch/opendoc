@@ -45,6 +45,10 @@ export type Appointment = {
   status: string
   review_token: string
   created_at: string
+  patient_id?: string | null
+  proposed_slot_id?: number | null
+  proposed_day_label?: string | null
+  proposed_time_label?: string | null
 }
 
 export type PatientFile = {
@@ -258,6 +262,22 @@ export const api = {
       headers: authHeaders(token),
       body: JSON.stringify({ newSlotId }),
     }),
+
+  proposeReschedule: (token: string, appointmentId: string, newSlotId: number) =>
+    request<Appointment>(`/appointments/${appointmentId}/propose-reschedule`, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ newSlotId }),
+    }),
+
+  withdrawReschedule: (token: string, appointmentId: string) =>
+    request<{ ok: true }>(`/appointments/${appointmentId}/withdraw-reschedule`, { method: 'POST', headers: authHeaders(token) }),
+
+  approveReschedule: (token: string, appointmentId: string) =>
+    request<Appointment>(`/appointments/${appointmentId}/approve-reschedule`, { method: 'POST', headers: authHeaders(token) }),
+
+  declineReschedule: (token: string, appointmentId: string) =>
+    request<{ ok: true }>(`/appointments/${appointmentId}/decline-reschedule`, { method: 'POST', headers: authHeaders(token) }),
 
   addSlot: (token: string, day: string, time: string) =>
     request<{ id: number; day: string; time: string }>('/doctors/me/slots', {

@@ -88,6 +88,7 @@ function AppointmentRow({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const isCancelled = appointment.status === 'cancelled'
+  const isPending = appointment.status === 'pending_reschedule'
 
   async function handleCancel() {
     if (!window.confirm('Cancel this appointment?')) return
@@ -98,6 +99,32 @@ function AppointmentRow({
       onChanged()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not cancel this appointment.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleApprove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.approveReschedule(token, appointment.id)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not approve the new time.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleDecline() {
+    setBusy(true)
+    setError(null)
+    try {
+      await api.declineReschedule(token, appointment.id)
+      onChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not decline the new time.')
     } finally {
       setBusy(false)
     }
@@ -134,22 +161,49 @@ function AppointmentRow({
           <p className="text-sm text-brand-600">{appointment.doctor_specialty}</p>
           <p className="mt-1 flex items-center gap-1 text-xs text-ink-500"><MapPin size={12} /> {appointment.doctor_address}</p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCancelled ? 'bg-ink-100 text-ink-500' : 'bg-brand-50 text-brand-700'}`}>
-          {isCancelled ? 'Cancelled' : `${appointment.day_label} at ${appointment.time_label}`}
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCancelled ? 'bg-ink-100 text-ink-500' : isPending ? 'bg-accent-50 text-accent-700' : 'bg-brand-50 text-brand-700'}`}>
+          {isCancelled ? 'Cancelled' : isPending ? 'New time proposed' : `${appointment.day_label} at ${appointment.time_label}`}
         </span>
       </div>
+
+      {isPending && (
+        <div className="mt-3 rounded-lg bg-accent-50 px-3 py-3 text-xs text-accent-700">
+          <p>
+            {appointment.doctor_name} proposed moving your appointment from {appointment.day_label} at {appointment.time_label} to{' '}
+            <strong>{appointment.proposed_day_label} at {appointment.proposed_time_label}</strong>.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={handleApprove}
+              disabled={busy}
+              className="rounded-full bg-brand-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+            >
+              Approve new time
+            </button>
+            <button
+              onClick={handleDecline}
+              disabled={busy}
+              className="rounded-full border border-accent-300 px-4 py-1.5 text-xs font-semibold text-accent-700 hover:bg-accent-100 disabled:opacity-60"
+            >
+              Keep original time
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="mt-3 text-xs text-accent-700">{error}</p>}
 
       {!isCancelled && (
         <div className="mt-4 flex gap-2 border-t border-ink-50 pt-3">
-          <button
-            onClick={openReschedule}
-            disabled={busy}
-            className="rounded-full border border-ink-200 px-4 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
-          >
-            Reschedule
-          </button>
+          {!isPending && (
+            <button
+              onClick={openReschedule}
+              disabled={busy}
+              className="rounded-full border border-ink-200 px-4 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+            >
+              Reschedule
+            </button>
+          )}
           <button
             onClick={handleCancel}
             disabled={busy}

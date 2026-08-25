@@ -117,6 +117,7 @@ export async function initSchema() {
 
     ALTER TABLE appointments ADD COLUMN IF NOT EXISTS review_token TEXT UNIQUE;
     ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_id TEXT REFERENCES patients(id) ON DELETE SET NULL;
+    ALTER TABLE appointments ADD COLUMN IF NOT EXISTS proposed_slot_id INTEGER REFERENCES doctor_slots(id);
 
     CREATE TABLE IF NOT EXISTS patient_files (
       id TEXT PRIMARY KEY,

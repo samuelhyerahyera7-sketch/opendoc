@@ -104,6 +104,34 @@ export function appointmentCancelledEmail({ recipientName, doctorName, patientNa
   }
 }
 
+export function appointmentProposedRescheduleEmail({ patientFirstName, doctorName, oldDay, oldTime, newDay, newTime, reviewUrl }) {
+  return {
+    subject: `${doctorName} proposed a new time for your appointment`,
+    html: wrapEmail(`
+      <p>Hi ${patientFirstName},</p>
+      <p>
+        <strong>${doctorName}</strong> is unable to keep your appointment on <strong>${oldDay} at ${oldTime}</strong> and
+        has proposed moving it to <strong>${newDay} at ${newTime}</strong> instead.
+      </p>
+      <p>Please log in to approve or decline this new time:</p>
+      <p><a href="${reviewUrl}">${reviewUrl}</a></p>
+    `),
+  }
+}
+
+export function appointmentProposalDecidedEmail({ doctorFirstName, patientName, day, time, approved }) {
+  return {
+    subject: approved ? `${patientName} approved the new appointment time` : `${patientName} declined the proposed time`,
+    html: wrapEmail(`
+      <p>Hi Dr. ${doctorFirstName},</p>
+      <p>
+        <strong>${patientName}</strong> has ${approved ? 'approved' : 'declined'} the new time you proposed.
+        ${approved ? `The appointment is now confirmed for <strong>${day} at ${time}</strong>.` : `The original appointment for <strong>${day} at ${time}</strong> stays as is — please propose another time or contact the patient directly.`}
+      </p>
+    `),
+  }
+}
+
 export function appointmentRescheduledEmail({ recipientName, doctorName, patientName, oldDay, oldTime, newDay, newTime, rescheduledByDoctor }) {
   return {
     subject: `Appointment rescheduled — now ${newDay} at ${newTime}`,

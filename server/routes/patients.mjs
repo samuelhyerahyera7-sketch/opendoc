@@ -85,8 +85,11 @@ router.get('/patients/me', requirePatientAuth, async (req, res) => {
 router.get('/patients/me/appointments', requirePatientAuth, async (req, res) => {
   const { rows } = await pool.query(
     `SELECT a.*, d.name as doctor_name, d.credentials as doctor_credentials, d.specialty as doctor_specialty,
-            d.photo as doctor_photo, d.address as doctor_address
-     FROM appointments a JOIN doctors d ON d.id = a.doctor_id
+            d.photo as doctor_photo, d.address as doctor_address,
+            ps.day_label as proposed_day_label, ps.time_label as proposed_time_label
+     FROM appointments a
+     JOIN doctors d ON d.id = a.doctor_id
+     LEFT JOIN doctor_slots ps ON ps.id = a.proposed_slot_id
      WHERE a.patient_id = $1
      ORDER BY a.created_at DESC`,
     [req.patientId],
