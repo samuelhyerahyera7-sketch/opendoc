@@ -11,7 +11,7 @@ import { put } from '@vercel/blob'
 const useBlob = !!process.env.BLOB_READ_WRITE_TOKEN
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const localUploadsDir = path.join(__dirname, 'data', 'uploads')
+export const localUploadsDir = path.join(__dirname, 'data', 'uploads')
 
 // Blob URLs are access-public (Vercel Blob's free tier has no private/
 // signed-URL mode) but contain an unguessable random suffix, and — more

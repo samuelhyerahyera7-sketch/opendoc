@@ -232,6 +232,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  uploadDoctorPhoto: (token: string, file: File) => {
+    const formData = new FormData()
+    formData.append('photo', file)
+    return request<ApiDoctor>('/doctors/me/photo', { method: 'POST', headers: authHeaders(token), body: formData })
+  },
+
   bookAppointment: (
     payload: {
       doctorId: string

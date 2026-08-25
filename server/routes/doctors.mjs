@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
+import multer from 'multer'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
 import { hashPassword, verifyPassword, createSession, requireAuth, createActionToken, consumeActionToken } from '../auth.mjs'
@@ -7,6 +8,10 @@ import { serializeDoctor } from '../serialize.mjs'
 import { specialtiesList, insurancesList, medicalAidsList, CASH_OPTION } from '../seed.mjs'
 import { haversineKm } from '../geo.mjs'
 import { sendEmail, verifyEmailMessage, resetPasswordEmail } from '../email.mjs'
+import { uploadFile } from '../storage.mjs'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 const router = Router()
 
@@ -151,6 +156,25 @@ router.patch('/doctors/me', requireAuth, async (req, res) => {
     }
   }
 
+  const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [req.doctorId])
+  res.json(await serializeDoctor(rows[0], { includePrivate: true }))
+})
+
+router.post('/doctors/me/photo', requireAuth, upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'A photo is required' })
+  if (!ALLOWED_PHOTO_TYPES.has(req.file.mimetype)) {
+    return res.status(400).json({ error: 'Photo must be a JPEG, PNG, or WebP image' })
+  }
+
+  const stored = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype)
+  // Patient files stay behind an authenticated download proxy since they're
+  // sensitive; a doctor's profile photo is public by design (shown on
+  // search results and profile pages), so it needs a directly renderable
+  // URL — Blob already gives us one, the local-disk dev fallback doesn't,
+  // so route it through the static /api/uploads mount instead.
+  const photoUrl = stored.url.startsWith('local:') ? `/api/uploads/${stored.path}` : stored.url
+
+  await pool.query('UPDATE doctors SET photo = $1 WHERE id = $2', [photoUrl, req.doctorId])
   const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [req.doctorId])
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })

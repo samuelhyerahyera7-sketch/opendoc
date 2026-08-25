@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import {
   CalendarPlus,
+  Camera,
   FileUp,
   Inbox,
+  Loader2,
   LogOut,
   Mail,
   Send,
@@ -12,7 +14,7 @@ import {
   CalendarDays,
 } from 'lucide-react'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
-import { api, ApiError, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
+import { api, ApiError, type ApiDoctor, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
 import VerificationBadge from '../../components/VerificationBadge'
 import NotificationBell from '../../components/NotificationBell'
 
@@ -49,18 +51,18 @@ export default function ProviderDashboard() {
   return (
     <div className="bg-ink-50/60 flex-1">
       <div className="border-b border-ink-100 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
-            <div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 min-w-0">
+            <PhotoUploader token={token} doctor={doctor} onUploaded={refresh} />
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-ink-900">{doctor.name}, {doctor.credentials}</h1>
+                <h1 className="text-lg font-bold text-ink-900 sm:text-xl">{doctor.name}, {doctor.credentials}</h1>
                 <VerificationBadge status={doctor.verificationStatus} />
               </div>
-              <p className="text-sm text-brand-600">{doctor.specialty} &middot; {doctor.city || 'No city set'}</p>
+              <p className="truncate text-sm text-brand-600">{doctor.specialty} &middot; {doctor.city || 'No city set'}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center justify-end gap-3">
             <NotificationBell token={token} />
             <button
               onClick={logout}
@@ -121,6 +123,48 @@ function TabButton({
       <Icon size={15} />
       {children}
     </button>
+  )
+}
+
+function PhotoUploader({
+  token,
+  doctor,
+  onUploaded,
+}: {
+  token: string
+  doctor: ApiDoctor
+  onUploaded: () => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setError(null)
+    setUploading(true)
+    try {
+      await api.uploadDoctorPhoto(token, file)
+      onUploaded()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that photo.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="shrink-0">
+      <label className="group relative block h-14 w-14 cursor-pointer overflow-hidden rounded-xl">
+        <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
+          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+        </span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={uploading} className="sr-only" />
+      </label>
+      {error && <p className="mt-1 max-w-[7rem] text-[10px] text-accent-700">{error}</p>}
+    </div>
   )
 }
 
