@@ -28,6 +28,21 @@ router.delete('/admin/doctors/:id', requireAdmin, async (req, res) => {
   res.status(204).end()
 })
 
+// Lets an admin correct a doctor's stored address/coordinates (e.g. when a
+// signup was geocoded to a city/suburb centroid instead of the exact street).
+router.patch('/admin/doctors/:id/location', requireAdmin, async (req, res) => {
+  const { address, city, lat, lng } = req.body
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    return res.status(400).json({ error: 'lat and lng must be numbers' })
+  }
+  const { rows } = await pool.query(
+    'UPDATE doctors SET address = COALESCE($1, address), city = COALESCE($2, city), lat = $3, lng = $4 WHERE id = $5 RETURNING *',
+    [address ?? null, city ?? null, lat, lng, req.params.id],
+  )
+  if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  res.json(await serializeDoctor(rows[0], { includePrivate: true }))
+})
+
 router.post('/admin/doctors/:id/verify', requireAdmin, async (req, res) => {
   const { rows } = await pool.query(
     "UPDATE doctors SET verification_status = 'verified' WHERE id = $1 RETURNING *",

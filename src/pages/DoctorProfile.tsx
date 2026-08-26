@@ -149,9 +149,19 @@ export default function DoctorProfile() {
                 </p>
                 <div className="mt-4 h-72 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="h-full w-full animate-pulse bg-ink-50" />}>
-                    <DoctorsMap doctors={[doctor]} />
+                    <DoctorsMap
+                      doctors={[doctor]}
+                      onSelectDoctor={() => {
+                        window.open(
+                          `https://www.google.com/maps/dir/?api=1&destination=${doctor.lat},${doctor.lng}`,
+                          '_blank',
+                          'noopener,noreferrer',
+                        )
+                      }}
+                    />
                   </Suspense>
                 </div>
+                <p className="mt-2 text-xs text-ink-400">Tap the pin to get directions.</p>
               </section>
             )}
 
