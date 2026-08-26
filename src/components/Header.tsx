@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Menu, User, X } from 'lucide-react'
 import { useState } from 'react'
 import { useDoctorAuth } from '../context/DoctorAuthContext'
@@ -8,14 +8,14 @@ import logoIcon from '../assets/opendoc-icon.png'
 export default function Header() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const location = useLocation()
   const { doctor } = useDoctorAuth()
   const { patient } = usePatientAuth()
-  // Doctors have their own dashboard header with their name and logout — the
-  // separate patient "Log In" link here is a different account system and
-  // just reads as "it doesn't know I'm logged in" when a doctor sees it.
-  const onProviderPages = location.pathname.startsWith('/provider')
-  const showPatientLink = !onProviderPages || !!patient
+  // The patient "Log In" link is a separate account system from the doctor
+  // one. A doctor who is logged in (with their own Dashboard button right
+  // there) but has no patient account has no use for it — on any page, not
+  // just the provider dashboard — so hide it whenever a doctor session
+  // exists and there's no patient session to show instead.
+  const showPatientLink = !!patient || !doctor
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur">
