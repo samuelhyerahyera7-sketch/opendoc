@@ -369,13 +369,14 @@ router.post('/appointments/:id/decline-reschedule', requirePatientAuth, async (r
 })
 
 router.post('/doctors/me/slots', requireAuth, async (req, res) => {
-  const { day, time } = req.body
+  const { day, time, date } = req.body
   if (!day || !time) return res.status(400).json({ error: 'day and time are required' })
+  if (date && Number.isNaN(Date.parse(date))) return res.status(400).json({ error: 'Invalid date' })
   const { rows } = await pool.query(
-    'INSERT INTO doctor_slots (doctor_id, day_label, time_label) VALUES ($1, $2, $3) RETURNING id',
-    [req.doctorId, day, time],
+    'INSERT INTO doctor_slots (doctor_id, day_label, time_label, slot_date) VALUES ($1, $2, $3, $4) RETURNING id',
+    [req.doctorId, day, time, date || null],
   )
-  res.status(201).json({ id: rows[0].id, day, time })
+  res.status(201).json({ id: rows[0].id, day, time, date: date || null })
 })
 
 router.delete('/doctors/me/slots/:id', requireAuth, async (req, res) => {

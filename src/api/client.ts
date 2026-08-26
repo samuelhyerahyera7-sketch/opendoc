@@ -22,7 +22,7 @@ export type ApiDoctor = {
   reviewCount: number
   verificationStatus: 'pending' | 'verified' | 'rejected'
   insurances: string[]
-  slots: { id: number; day: string; time: string }[]
+  slots: { id: number; day: string; time: string; date?: string | null }[]
   email?: string
   hpcsaNumber?: string
   emailVerified?: boolean
@@ -285,11 +285,11 @@ export const api = {
   declineReschedule: (token: string, appointmentId: string) =>
     request<{ ok: true }>(`/appointments/${appointmentId}/decline-reschedule`, { method: 'POST', headers: authHeaders(token) }),
 
-  addSlot: (token: string, day: string, time: string) =>
-    request<{ id: number; day: string; time: string }>('/doctors/me/slots', {
+  addSlot: (token: string, day: string, time: string, date?: string) =>
+    request<{ id: number; day: string; time: string; date: string | null }>('/doctors/me/slots', {
       method: 'POST',
       headers: authHeaders(token),
-      body: JSON.stringify({ day, time }),
+      body: JSON.stringify({ day, time, date }),
     }),
 
   deleteSlot: (token: string, id: number) =>

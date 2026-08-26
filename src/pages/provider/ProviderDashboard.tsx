@@ -20,7 +20,20 @@ import NotificationBell from '../../components/NotificationBell'
 
 type Tab = 'appointments' | 'schedule' | 'files'
 
-const DAY_OPTIONS = ['Today', 'Tomorrow', 'Wed', 'Thu', 'Fri', 'Sat', 'Mon']
+type DayColumn = { iso: string; headerLabel: string; absoluteLabel: string }
+
+function buildDayColumns(): DayColumn[] {
+  const now = new Date()
+  const columns: DayColumn[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const absoluteLabel = d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })
+    const headerLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : absoluteLabel
+    columns.push({ iso, headerLabel, absoluteLabel })
+  }
+  return columns
+}
 
 function buildTimeOptions() {
   const times: string[] = []
@@ -355,30 +368,45 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
 
   if (!profile) return <p className="text-ink-400">Loading schedule…</p>
 
-  const openByKey = new Map(profile.slots.map((s) => [`${s.day}|${s.time}`, s.id]))
+  const dayColumns = buildDayColumns()
+  const openByKey = new Map(profile.slots.filter((s) => s.date).map((s) => [`${s.date}|${s.time}`, s.id]))
   const bookedKeys = new Set(
     appointments.filter((a) => a.status !== 'cancelled').map((a) => `${a.day_label}|${a.time_label}`),
   )
-  const gridTimes = new Set(TIME_OPTIONS)
-  const offGridSlots = profile.slots.filter((s) => !gridTimes.has(s.time))
+  const visibleIsos = new Set(dayColumns.map((c) => c.iso))
+  const offGridSlots = profile.slots.filter((s) => !s.date || !visibleIsos.has(s.date))
 
-  function cellFor(day: string, time: string): CalendarCell {
-    const key = `${day}|${time}`
+  function cellFor(col: DayColumn, time: string): CalendarCell {
+    const key = `${col.iso}|${time}`
     if (openByKey.has(key)) return { state: 'open', slotId: openByKey.get(key) }
-    if (bookedKeys.has(key)) return { state: 'booked' }
+    if (bookedKeys.has(`${col.absoluteLabel}|${time}`)) return { state: 'booked' }
     return { state: 'empty' }
   }
 
-  async function handleCellClick(day: string, time: string, cell: CalendarCell) {
+  async function handleDeleteSlot(slotId: number) {
+    setBusyCell(`delete-${slotId}`)
+    setError(null)
+    try {
+      await api.deleteSlot(token, slotId)
+      load()
+      onSlotsChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not remove that time slot.')
+    } finally {
+      setBusyCell(null)
+    }
+  }
+
+  async function handleCellClick(col: DayColumn, time: string, cell: CalendarCell) {
     if (cell.state === 'booked') return
-    const key = `${day}|${time}`
+    const key = `${col.iso}|${time}`
     setBusyCell(key)
     setError(null)
     try {
       if (cell.state === 'open' && cell.slotId) {
         await api.deleteSlot(token, cell.slotId)
       } else {
-        await api.addSlot(token, day, time)
+        await api.addSlot(token, col.absoluteLabel, time, col.iso)
       }
       load()
       onSlotsChanged()
@@ -403,8 +431,13 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
             <thead>
               <tr>
                 <th className="w-20" />
-                {DAY_OPTIONS.map((d) => (
-                  <th key={d} className="pb-1 text-center font-semibold text-ink-600">{d}</th>
+                {dayColumns.map((col) => (
+                  <th key={col.iso} className="pb-1 text-center font-semibold text-ink-600">
+                    {col.headerLabel}
+                    {col.headerLabel !== col.absoluteLabel && (
+                      <span className="block text-[10px] font-normal text-ink-400">{col.absoluteLabel}</span>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -412,14 +445,14 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
               {TIME_OPTIONS.map((time) => (
                 <tr key={time}>
                   <td className="whitespace-nowrap pr-2 text-right font-medium text-ink-500">{time}</td>
-                  {DAY_OPTIONS.map((day) => {
-                    const cell = cellFor(day, time)
-                    const key = `${day}|${time}`
+                  {dayColumns.map((col) => {
+                    const cell = cellFor(col, time)
+                    const key = `${col.iso}|${time}`
                     return (
-                      <td key={day} className="p-0">
+                      <td key={col.iso} className="p-0">
                         <button
                           disabled={busyCell === key || cell.state === 'booked'}
-                          onClick={() => handleCellClick(day, time, cell)}
+                          onClick={() => handleCellClick(col, time, cell)}
                           title={cell.state === 'booked' ? 'Booked' : cell.state === 'open' ? 'Click to close' : 'Click to open'}
                           className={`h-7 w-full rounded-md border transition disabled:cursor-not-allowed ${
                             cell.state === 'open'
@@ -448,12 +481,16 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
       {offGridSlots.length > 0 && (
         <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-6">
           <h3 className="font-bold text-ink-900">Other open slots</h3>
-          <p className="mt-1 text-sm text-ink-500">Slots outside the standard half-hour grid (e.g. added before this calendar existed).</p>
+          <p className="mt-1 text-sm text-ink-500">Slots outside the current 7-day calendar view (e.g. added before dates existed, or further out than a week).</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {offGridSlots.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-lg border border-ink-200 px-3 py-2 text-sm">
                 <span className="font-medium text-ink-700">{s.day} &middot; {s.time}</span>
-                <button onClick={() => handleCellClick(s.day, s.time, { state: 'open', slotId: s.id })} className="text-ink-400 hover:text-accent-600">
+                <button
+                  disabled={busyCell === `delete-${s.id}`}
+                  onClick={() => handleDeleteSlot(s.id)}
+                  className="text-ink-400 hover:text-accent-600 disabled:opacity-50"
+                >
                   <Trash2 size={15} />
                 </button>
               </div>

@@ -61,6 +61,8 @@ export async function initSchema() {
       is_booked BOOLEAN DEFAULT FALSE
     );
 
+    ALTER TABLE doctor_slots ADD COLUMN IF NOT EXISTS slot_date DATE;
+
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
       doctor_id TEXT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
