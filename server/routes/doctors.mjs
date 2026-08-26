@@ -3,12 +3,29 @@ import rateLimit from 'express-rate-limit'
 import multer from 'multer'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
-import { hashPassword, verifyPassword, createSession, requireAuth, createActionToken, consumeActionToken } from '../auth.mjs'
+import {
+  hashPassword,
+  verifyPassword,
+  createSession,
+  requireAuth,
+  createActionToken,
+  consumeActionToken,
+  optionalDoctorId,
+  revokeAllDoctorSessions,
+} from '../auth.mjs'
+import { getAdminForToken, ADMIN_COOKIE_NAME } from '../adminAuth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
 import { specialtiesList, insurancesList, medicalAidsList, CASH_OPTION } from '../seed.mjs'
 import { haversineKm } from '../geo.mjs'
 import { sendEmail, verifyEmailMessage, resetPasswordEmail } from '../email.mjs'
 import { uploadFile } from '../storage.mjs'
+import { doctorRegisterSchema, doctorLoginSchema, passwordSchema, validateBody } from '../validation.mjs'
+
+// A doctor is publicly bookable/searchable only once verified. Pending,
+// rejected, and suspended doctors keep full access to their own private
+// dashboard (requireAuth routes below), but never appear in public search,
+// never render a public profile to a stranger, and can never be booked.
+const PUBLICLY_VISIBLE_STATUS = 'verified'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
@@ -73,7 +90,7 @@ router.get('/doctors', async (req, res) => {
   const hasLocation = userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)
   const radius = radiusKm !== undefined ? parseFloat(radiusKm) : null
 
-  const { rows } = await pool.query('SELECT * FROM doctors')
+  const { rows } = await pool.query('SELECT * FROM doctors WHERE verification_status = $1', [PUBLICLY_VISIBLE_STATUS])
   let filtered = rows
 
   const query = String(q).trim().toLowerCase()
@@ -226,50 +243,78 @@ router.get('/doctors/verify-email', async (req, res) => {
 
 router.get('/doctors/:id', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [req.params.id])
-  if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
-  res.json(await serializeDoctor(rows[0]))
+  const doctor = rows[0]
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' })
+
+  if (doctor.verification_status !== PUBLICLY_VISIBLE_STATUS) {
+    // Not publicly bookable — only the doctor themself (previewing their own
+    // pending/rejected/suspended profile) or an admin may see it. Everyone
+    // else gets exactly the same 404 as a nonexistent profile, so a rejected
+    // doctor's profile URL doesn't leak that it ever existed.
+    const [ownerId, admin] = await Promise.all([
+      optionalDoctorId(req),
+      getAdminForToken(req.cookies?.[ADMIN_COOKIE_NAME]),
+    ])
+    if (ownerId !== doctor.id && !admin) {
+      return res.status(404).json({ error: 'Doctor not found' })
+    }
+    return res.json(await serializeDoctor(doctor, { includePrivate: ownerId === doctor.id || !!admin }))
+  }
+
+  res.json(await serializeDoctor(doctor))
 })
 
-router.post('/doctors/register', authLimiter, async (req, res) => {
+router.post('/doctors/register', authLimiter, validateBody(doctorRegisterSchema), async (req, res) => {
   const { name, credentials, specialty, email, password, hpcsaNumber, address, city, lat, lng, bio, insurances, acceptsCash } = req.body
 
-  if (!name || !specialty || !email || !password || !hpcsaNumber) {
-    return res.status(400).json({ error: 'name, specialty, email, password, and HPCSA registration number are required' })
-  }
-  if (String(password).length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  }
-
-  const { rows: existingRows } = await pool.query('SELECT id FROM doctors WHERE email = $1', [String(email).toLowerCase()])
+  const { rows: existingRows } = await pool.query('SELECT id FROM doctors WHERE email = $1', [email])
   if (existingRows[0]) return res.status(409).json({ error: 'An account with this email already exists' })
+
+  const { rows: hpcsaRows } = await pool.query(
+    'SELECT id FROM doctors WHERE LOWER(TRIM(hpcsa_number)) = LOWER(TRIM($1))',
+    [hpcsaNumber],
+  )
+  if (hpcsaRows[0]) {
+    return res.status(409).json({ error: 'An account is already registered with this HPCSA number' })
+  }
 
   const insuranceSelections = Array.isArray(insurances) ? insurances : []
   const wantsCash = acceptsCash !== undefined ? !!acceptsCash : insuranceSelections.includes(CASH_OPTION)
 
   const id = crypto.randomUUID()
-  await pool.query(
-    `INSERT INTO doctors
-      (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count, hpcsa_number, verification_status, email_verified)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, TRUE, $15, 5.0, 0, $16, 'pending', FALSE)`,
-    [
-      id,
-      name,
-      credentials || 'MD',
-      specialty,
-      String(email).toLowerCase(),
-      hashPassword(password),
-      `https://i.pravatar.cc/300?u=${id}`,
-      address || '',
-      city || '',
-      typeof lat === 'number' ? lat : null,
-      typeof lng === 'number' ? lng : null,
-      bio || '',
-      JSON.stringify([]),
-      JSON.stringify(['English']),
-      wantsCash,
-      String(hpcsaNumber).trim(),
-    ],
-  )
+  try {
+    await pool.query(
+      `INSERT INTO doctors
+        (id, name, credentials, specialty, email, password_hash, photo, address, city, lat, lng, bio, education, languages, accepting_new, accepts_cash, rating, review_count, hpcsa_number, verification_status, email_verified)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, TRUE, $15, 5.0, 0, $16, 'pending', FALSE)`,
+      [
+        id,
+        name,
+        credentials || 'MD',
+        specialty,
+        email,
+        hashPassword(password),
+        `https://i.pravatar.cc/300?u=${id}`,
+        address || '',
+        city || '',
+        typeof lat === 'number' ? lat : null,
+        typeof lng === 'number' ? lng : null,
+        bio || '',
+        JSON.stringify([]),
+        JSON.stringify(['English']),
+        wantsCash,
+        hpcsaNumber,
+      ],
+    )
+  } catch (err) {
+    // Belt-and-braces: the DB-level unique index (server/migrations/0002_*)
+    // is the real guard against a race between the check above and this
+    // insert; translate its violation into the same friendly error.
+    if (err.code === '23505' && err.constraint === 'doctors_hpcsa_number_unique_idx') {
+      return res.status(409).json({ error: 'An account is already registered with this HPCSA number' })
+    }
+    throw err
+  }
 
   for (const ins of insuranceSelections) {
     if (ins === CASH_OPTION) continue
@@ -278,22 +323,46 @@ router.post('/doctors/register', authLimiter, async (req, res) => {
 
   const verifyToken = await createActionToken(id, 'verify_email')
   const { subject, html } = verifyEmailMessage({ name, verifyUrl: `${appUrl()}/verify-email?token=${verifyToken}` })
-  await sendEmail({ to: String(email).toLowerCase(), subject, html })
+  await sendEmail({ to: email, subject, html })
 
   const token = await createSession(id)
   const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [id])
   res.status(201).json({ token, doctor: await serializeDoctor(rows[0], { includePrivate: true }) })
 })
 
-router.post('/doctors/login', authLimiter, async (req, res) => {
+router.post('/doctors/login', authLimiter, validateBody(doctorLoginSchema), async (req, res) => {
   const { email, password } = req.body
-  const { rows } = await pool.query('SELECT * FROM doctors WHERE email = $1', [String(email || '').toLowerCase()])
+  const { rows } = await pool.query('SELECT * FROM doctors WHERE email = $1', [email])
   const row = rows[0]
-  if (!row || !verifyPassword(password || '', row.password_hash)) {
+  if (!row || !verifyPassword(password, row.password_hash)) {
     return res.status(401).json({ error: 'Invalid email or password' })
   }
   const token = await createSession(row.id)
   res.json({ token, doctor: await serializeDoctor(row, { includePrivate: true }) })
+})
+
+// Changes the password for the currently-authenticated doctor (requires the
+// current password) and immediately revokes every other active session —
+// a stolen session token can't survive the owner securing their account.
+router.post('/doctors/me/password', requireAuth, authLimiter, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+  const check = passwordSchema.safeParse(newPassword)
+  if (!check.success) return res.status(400).json({ error: check.error.issues[0]?.message || 'Invalid password' })
+
+  const { rows } = await pool.query('SELECT password_hash FROM doctors WHERE id = $1', [req.doctorId])
+  if (!rows[0] || !verifyPassword(currentPassword || '', rows[0].password_hash)) {
+    return res.status(401).json({ error: 'Current password is incorrect' })
+  }
+  await pool.query('UPDATE doctors SET password_hash = $1 WHERE id = $2', [hashPassword(check.data), req.doctorId])
+  await revokeAllDoctorSessions(req.doctorId, req.doctorToken)
+  res.json({ ok: true })
+})
+
+// "Log out everywhere": revokes every session for this account except the
+// one making the request.
+router.post('/doctors/me/sessions/revoke-all', requireAuth, async (req, res) => {
+  await revokeAllDoctorSessions(req.doctorId, req.doctorToken)
+  res.json({ ok: true })
 })
 
 router.post('/doctors/resend-verification', requireAuth, authLimiter, async (req, res) => {
@@ -325,12 +394,14 @@ router.post('/doctors/forgot-password', authLimiter, async (req, res) => {
 
 router.post('/doctors/reset-password', authLimiter, async (req, res) => {
   const { token, password } = req.body
-  if (!password || String(password).length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' })
-  }
+  const check = passwordSchema.safeParse(password)
+  if (!check.success) return res.status(400).json({ error: check.error.issues[0]?.message || 'Invalid password' })
   const doctorId = await consumeActionToken(String(token || ''), 'reset_password')
   if (!doctorId) return res.status(400).json({ error: 'This reset link is invalid or has expired.' })
-  await pool.query('UPDATE doctors SET password_hash = $1 WHERE id = $2', [hashPassword(password), doctorId])
+  await pool.query('UPDATE doctors SET password_hash = $1 WHERE id = $2', [hashPassword(check.data), doctorId])
+  // A password reset means the previous password may have been compromised
+  // — cut every existing session rather than leaving old ones valid.
+  await revokeAllDoctorSessions(doctorId)
   res.json({ ok: true })
 })
 

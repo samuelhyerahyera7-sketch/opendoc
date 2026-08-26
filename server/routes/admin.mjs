@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.mjs'
-import { requireAdmin } from '../auth.mjs'
+import { requireAdmin, requireRole, logAudit } from '../adminAuth.mjs'
+import { revokeAllDoctorSessions } from '../auth.mjs'
 import { serializeDoctor } from '../serialize.mjs'
 import { notify } from '../notifications.mjs'
 
@@ -22,15 +23,19 @@ router.get('/admin/doctors', requireAdmin, async (req, res) => {
 
 // Permanently removes a doctor and everything tied to them (insurances,
 // slots, appointments, reviews, files, transfers) via ON DELETE CASCADE.
-router.delete('/admin/doctors/:id', requireAdmin, async (req, res) => {
-  const result = await pool.query('DELETE FROM doctors WHERE id = $1', [req.params.id])
-  if (result.rowCount === 0) return res.status(404).json({ error: 'Doctor not found' })
+// Restricted to super_admin — suspend (below) is almost always the right
+// tool for a verification/support admin instead of permanent deletion.
+router.delete('/admin/doctors/:id', requireAdmin, requireRole('super_admin'), async (req, res) => {
+  const { rows } = await pool.query('SELECT id, name, email FROM doctors WHERE id = $1', [req.params.id])
+  if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await pool.query('DELETE FROM doctors WHERE id = $1', [req.params.id])
+  await logAudit(req, 'PROVIDER_DELETED', { resourceType: 'doctor', resourceId: req.params.id, metadata: { name: rows[0].name, email: rows[0].email } })
   res.status(204).end()
 })
 
 // Lets an admin correct a doctor's stored address/coordinates (e.g. when a
 // signup was geocoded to a city/suburb centroid instead of the exact street).
-router.patch('/admin/doctors/:id/location', requireAdmin, async (req, res) => {
+router.patch('/admin/doctors/:id/location', requireAdmin, requireRole('super_admin', 'verification_admin'), async (req, res) => {
   const { address, city, lat, lng } = req.body
   if (typeof lat !== 'number' || typeof lng !== 'number') {
     return res.status(400).json({ error: 'lat and lng must be numbers' })
@@ -40,6 +45,7 @@ router.patch('/admin/doctors/:id/location', requireAdmin, async (req, res) => {
     [address ?? null, city ?? null, lat, lng, req.params.id],
   )
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await logAudit(req, 'PROVIDER_LOCATION_EDITED', { resourceType: 'doctor', resourceId: req.params.id, metadata: { address, city, lat, lng } })
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })
 
@@ -67,10 +73,14 @@ router.post('/admin/doctors/:id/slots', requireAdmin, async (req, res) => {
   res.status(201).json({ id: rows[0].id, day, time, date: date || null })
 })
 
-router.post('/admin/doctors/:id/verify', requireAdmin, async (req, res) => {
+router.post('/admin/doctors/:id/verify', requireAdmin, requireRole('super_admin', 'verification_admin'), async (req, res) => {
+  const { notes } = req.body || {}
   const { rows } = await pool.query(
-    "UPDATE doctors SET verification_status = 'verified' WHERE id = $1 RETURNING *",
-    [req.params.id],
+    `UPDATE doctors
+     SET verification_status = 'verified', verified_at = now(), verified_by = $2,
+         verification_notes = $3, rejection_reason = NULL, last_verification_at = now()
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, req.admin.id, notes || null],
   )
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
   await notify(
@@ -80,15 +90,24 @@ router.post('/admin/doctors/:id/verify', requireAdmin, async (req, res) => {
     'Your profile is now marked as verified and visible to patients.',
     '/provider/dashboard',
   )
+  await logAudit(req, 'PROVIDER_VERIFIED', { resourceType: 'doctor', resourceId: req.params.id, metadata: { notes: notes || null } })
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })
 
-router.post('/admin/doctors/:id/reject', requireAdmin, async (req, res) => {
+router.post('/admin/doctors/:id/reject', requireAdmin, requireRole('super_admin', 'verification_admin'), async (req, res) => {
+  const { reason } = req.body || {}
   const { rows } = await pool.query(
-    "UPDATE doctors SET verification_status = 'rejected' WHERE id = $1 RETURNING *",
-    [req.params.id],
+    `UPDATE doctors
+     SET verification_status = 'rejected', rejection_reason = $2,
+         verified_by = $3, last_verification_at = now()
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, reason || null, req.admin.id],
   )
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  // A rejected doctor's live sessions are cut immediately — no publicly
+  // bookable profile should stay reachable from a session issued while the
+  // profile was still pending.
+  await revokeAllDoctorSessions(rows[0].id)
   await notify(
     rows[0].id,
     'verification_rejected',
@@ -96,7 +115,41 @@ router.post('/admin/doctors/:id/reject', requireAdmin, async (req, res) => {
     'We could not verify your HPCSA number. Please check your details and contact support.',
     '/provider/dashboard',
   )
+  await logAudit(req, 'PROVIDER_REJECTED', { resourceType: 'doctor', resourceId: req.params.id, metadata: { reason: reason || null } })
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
+})
+
+// Suspension is the preferred alternative to deletion: it immediately takes
+// a doctor out of public search/booking (same enforcement as "rejected")
+// without destroying their history, appointments, files, or reviews.
+router.post('/admin/doctors/:id/suspend', requireAdmin, requireRole('super_admin', 'verification_admin'), async (req, res) => {
+  const { reason } = req.body || {}
+  const { rows } = await pool.query(
+    `UPDATE doctors SET verification_status = 'suspended', rejection_reason = $2, verified_by = $3, last_verification_at = now()
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, reason || null, req.admin.id],
+  )
+  if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await revokeAllDoctorSessions(rows[0].id)
+  await logAudit(req, 'PROVIDER_SUSPENDED', { resourceType: 'doctor', resourceId: req.params.id, metadata: { reason: reason || null } })
+  res.json(await serializeDoctor(rows[0], { includePrivate: true }))
+})
+
+router.post('/admin/doctors/:id/reactivate', requireAdmin, requireRole('super_admin', 'verification_admin'), async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE doctors SET verification_status = 'verified', verified_at = now(), verified_by = $2, rejection_reason = NULL, last_verification_at = now()
+     WHERE id = $1 RETURNING *`,
+    [req.params.id, req.admin.id],
+  )
+  if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
+  await logAudit(req, 'PROVIDER_REACTIVATED', { resourceType: 'doctor', resourceId: req.params.id })
+  res.json(await serializeDoctor(rows[0], { includePrivate: true }))
+})
+
+router.get('/admin/audit-log', requireAdmin, requireRole('super_admin'), async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500)
+  const { rows } = await pool.query('SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT $1', [limit])
+  res.json(rows)
 })
 
 export default router

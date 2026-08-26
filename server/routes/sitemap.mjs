@@ -21,8 +21,10 @@ function slugifySpecialty(name) {
 }
 
 router.get('/sitemap.xml', async (req, res) => {
+  // Only verified doctors have a publicly bookable profile — pending,
+  // rejected, and suspended doctors must never appear in the sitemap.
   const { rows: doctors } = await pool.query(
-    "SELECT id, created_at FROM doctors WHERE verification_status != 'rejected'",
+    "SELECT id, created_at FROM doctors WHERE verification_status = 'verified'",
   )
   const { rows: insuranceRows } = await pool.query(
     'SELECT DISTINCT insurance FROM doctor_insurances',

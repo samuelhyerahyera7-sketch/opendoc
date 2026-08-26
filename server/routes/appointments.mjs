@@ -13,17 +13,23 @@ import {
 } from '../email.mjs'
 import { notify, notifyPatient } from '../notifications.mjs'
 import { saNow, parseTimeLabelMinutes } from '../serialize.mjs'
+import { bookAppointmentSchema, validateBody } from '../validation.mjs'
+import rateLimit from 'express-rate-limit'
 
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
 
 const router = Router()
 
-router.post('/appointments', requirePatientAuth, async (req, res) => {
-  const { doctorId, slotId, firstName, lastName, email, phone, reason, newPatient } = req.body
+const bookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many booking attempts. Please try again in a few minutes.' },
+})
 
-  if (!doctorId || !slotId || !firstName || !lastName || !email || !phone) {
-    return res.status(400).json({ error: 'Missing required booking fields' })
-  }
+router.post('/appointments', bookingLimiter, requirePatientAuth, validateBody(bookAppointmentSchema), async (req, res) => {
+  const { doctorId, slotId, firstName, lastName, email, phone, reason, newPatient } = req.body
 
   const { rows: slotRows } = await pool.query('SELECT * FROM doctor_slots WHERE id = $1 AND doctor_id = $2', [slotId, doctorId])
   const slot = slotRows[0]
@@ -41,6 +47,9 @@ router.post('/appointments', requirePatientAuth, async (req, res) => {
   const { rows: doctorRows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [doctorId])
   const doctor = doctorRows[0]
   if (!doctor) return res.status(404).json({ error: 'Doctor not found' })
+  if (doctor.verification_status !== 'verified') {
+    return res.status(403).json({ error: 'This doctor is not currently accepting bookings' })
+  }
 
   const id = crypto.randomUUID()
   const reviewToken = crypto.randomBytes(20).toString('hex')

@@ -40,6 +40,7 @@ export async function requireAuth(req, res, next) {
   const doctorId = await getDoctorIdForToken(token)
   if (!doctorId) return res.status(401).json({ error: 'Not authenticated' })
   req.doctorId = doctorId
+  req.doctorToken = token
   next()
 }
 
@@ -68,6 +69,7 @@ export async function requirePatientAuth(req, res, next) {
   const patientId = await getPatientIdForToken(token)
   if (!patientId) return res.status(401).json({ error: 'Not authenticated' })
   req.patientId = patientId
+  req.patientToken = token
   next()
 }
 
@@ -95,6 +97,16 @@ export async function consumePatientActionToken(token, purpose) {
 // an appointment, so this tries both token types against the same bearer
 // token and attaches whichever one resolves (never both — the two session
 // tables are independent, so a token only ever matches one).
+// Non-blocking lookup: returns the doctor id for a bearer token if present
+// and valid, or null — never rejects the request. Used where a route is
+// public but should behave slightly differently for an authenticated owner
+// (e.g. a pending doctor previewing their own not-yet-public profile).
+export async function optionalDoctorId(req) {
+  const header = req.headers.authorization || ''
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null
+  return getDoctorIdForToken(token)
+}
+
 export async function requireDoctorOrPatientAuth(req, res, next) {
   const header = req.headers.authorization || ''
   const token = header.startsWith('Bearer ') ? header.slice(7) : null
@@ -137,18 +149,25 @@ export async function consumeActionToken(token, purpose) {
   return row.doctor_id
 }
 
-// Simple single-operator admin gate: one shared token from the ADMIN_TOKEN
-// env var, no separate admin account system. Good enough for a small team
-// reviewing doctor verification requests; swap for real admin accounts if
-// more than one person needs access with an audit trail.
-export function requireAdmin(req, res, next) {
-  if (!process.env.ADMIN_TOKEN) {
-    return res.status(503).json({ error: 'Admin access is not configured on this deployment' })
+// Admin auth (real accounts, RBAC, audit log) lives in server/adminAuth.mjs —
+// the old single-shared-ADMIN_TOKEN gate that used to live here is gone.
+
+// Invalidates every existing session for a doctor except (optionally) the
+// one just used to make the request — used on password change/reset so a
+// stolen old session can't keep riding along after the owner secures the
+// account.
+export async function revokeAllDoctorSessions(doctorId, exceptToken = null) {
+  if (exceptToken) {
+    await pool.query('DELETE FROM sessions WHERE doctor_id = $1 AND token != $2', [doctorId, exceptToken])
+  } else {
+    await pool.query('DELETE FROM sessions WHERE doctor_id = $1', [doctorId])
   }
-  const header = req.headers.authorization || ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null
-  if (token !== process.env.ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Not authorized' })
+}
+
+export async function revokeAllPatientSessions(patientId, exceptToken = null) {
+  if (exceptToken) {
+    await pool.query('DELETE FROM patient_sessions WHERE patient_id = $1 AND token != $2', [patientId, exceptToken])
+  } else {
+    await pool.query('DELETE FROM patient_sessions WHERE patient_id = $1', [patientId])
   }
-  next()
 }

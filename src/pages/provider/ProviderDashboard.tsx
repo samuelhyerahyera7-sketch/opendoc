@@ -67,7 +67,20 @@ export default function ProviderDashboard() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {doctor.verificationStatus === 'pending' && (
           <div className="mb-6 rounded-xl bg-ink-100 px-4 py-3 text-sm text-ink-700">
-            Your listing is live, but marked "verification pending" until an OpenDoc reviewer confirms your HPCSA number.
+            Your profile is <strong>not yet visible to patients</strong>. You can set up your schedule and profile
+            now, but you won't appear in search or be bookable until an OpenDoc reviewer confirms your HPCSA number.
+          </div>
+        )}
+        {doctor.verificationStatus === 'rejected' && (
+          <div className="mb-6 rounded-xl bg-accent-50 px-4 py-3 text-sm text-accent-700">
+            Your verification was declined{doctor.rejectionReason ? `: ${doctor.rejectionReason}` : '.'} Your profile
+            is not visible to patients or bookable. Contact support if you believe this was a mistake.
+          </div>
+        )}
+        {doctor.verificationStatus === 'suspended' && (
+          <div className="mb-6 rounded-xl bg-accent-50 px-4 py-3 text-sm text-accent-700">
+            Your account has been suspended{doctor.rejectionReason ? `: ${doctor.rejectionReason}` : '.'} Your profile
+            is not visible to patients or bookable. Contact support for details.
           </div>
         )}
         {token && !doctor.emailVerified && <EmailVerificationBanner token={token} />}

@@ -96,6 +96,10 @@ export async function serializeDoctor(row, { includePrivate = false, distanceKm 
     out.email = row.email
     out.hpcsaNumber = row.hpcsa_number
     out.emailVerified = !!row.email_verified
+    out.verifiedAt = row.verified_at || null
+    out.verificationNotes = row.verification_notes || null
+    out.rejectionReason = row.rejection_reason || null
+    out.lastVerificationAt = row.last_verification_at || null
   }
 
   return out

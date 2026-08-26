@@ -9,15 +9,20 @@
     "dev:server": "node server/index.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "migrate": "node server/migrate.mjs",
+    "create-admin": "node server/createAdmin.mjs",
+    "test": "node --test server/**/*.test.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@vercel/blob": "^2.8.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
     "lucide-react": "^1.33.0",
     "mapbox-gl": "^3.29.0",
     "multer": "^2.2.0",
@@ -25,9 +30,11 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "resend": "^6.22.0"
+    "resend": "^6.22.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/mapbox-gl": "^3.4.1",

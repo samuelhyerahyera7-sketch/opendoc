@@ -7,9 +7,8 @@ export default function TermsOfService() {
       <h1 className="text-3xl font-bold text-ink-900">Terms of Service</h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: {new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
-      <div className="mt-6 rounded-xl bg-accent-50 px-4 py-3 text-sm text-accent-700">
-        This is a working draft, not final legal advice. Before relying on it in production, have it reviewed by an
-        attorney admitted in South Africa.
+      <div className="mt-6 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-600">
+        These terms describe how OpenDoc currently operates. They are not a substitute for legal advice.
       </div>
 
       <div className="prose-sm mt-8 flex flex-col gap-6 text-sm leading-relaxed text-ink-700">

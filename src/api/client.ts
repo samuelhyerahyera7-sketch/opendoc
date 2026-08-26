@@ -1,3 +1,5 @@
+export type AdminIdentity = { id: string; email: string; role: 'super_admin' | 'verification_admin' | 'support_admin' }
+
 export type Specialty = { name: string; icon: string }
 
 export type InsuranceStat = { name: string; count: number; isCash: boolean }
@@ -20,12 +22,16 @@ export type ApiDoctor = {
   acceptsCash: boolean
   rating: number
   reviewCount: number
-  verificationStatus: 'pending' | 'verified' | 'rejected'
+  verificationStatus: 'pending' | 'verified' | 'rejected' | 'suspended'
   insurances: string[]
   slots: { id: number; day: string; time: string; date?: string | null }[]
   email?: string
   hpcsaNumber?: string
   emailVerified?: boolean
+  verifiedAt?: string | null
+  verificationNotes?: string | null
+  rejectionReason?: string | null
+  lastVerificationAt?: string | null
 }
 
 export type Review = { patient_name: string; rating: number; comment: string; created_at: string }
@@ -131,6 +137,10 @@ class ApiError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
+    // Harmless for the doctor/patient bearer-token endpoints (they don't
+    // rely on cookies); required for the admin endpoints, which authenticate
+    // via a secure HttpOnly session cookie rather than a token in JS.
+    credentials: 'include',
     ...options,
     headers: {
       ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
@@ -388,14 +398,23 @@ export const api = {
     request<{ ok: true }>('/patients/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
 
   admin: {
-    getPendingDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors/pending', { headers: authHeaders(adminToken) }),
-    getAllDoctors: (adminToken: string) => request<ApiDoctor[]>('/admin/doctors', { headers: authHeaders(adminToken) }),
-    verifyDoctor: (adminToken: string, doctorId: string) =>
-      request<ApiDoctor>(`/admin/doctors/${doctorId}/verify`, { method: 'POST', headers: authHeaders(adminToken) }),
-    rejectDoctor: (adminToken: string, doctorId: string) =>
-      request<ApiDoctor>(`/admin/doctors/${doctorId}/reject`, { method: 'POST', headers: authHeaders(adminToken) }),
-    deleteDoctor: (adminToken: string, doctorId: string) =>
-      request<void>(`/admin/doctors/${doctorId}`, { method: 'DELETE', headers: authHeaders(adminToken) }),
+    // Admin auth is a secure HttpOnly session cookie set by the server on
+    // login — there is no token for client code to hold or attach.
+    login: (email: string, password: string) =>
+      request<AdminIdentity>('/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+    logout: () => request<{ ok: true }>('/admin/logout', { method: 'POST' }),
+    me: () => request<AdminIdentity>('/admin/me'),
+    getPendingDoctors: () => request<ApiDoctor[]>('/admin/doctors/pending'),
+    getAllDoctors: () => request<ApiDoctor[]>('/admin/doctors'),
+    verifyDoctor: (doctorId: string, notes?: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/verify`, { method: 'POST', body: JSON.stringify({ notes }) }),
+    rejectDoctor: (doctorId: string, reason?: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    suspendDoctor: (doctorId: string, reason?: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    reactivateDoctor: (doctorId: string) =>
+      request<ApiDoctor>(`/admin/doctors/${doctorId}/reactivate`, { method: 'POST' }),
+    deleteDoctor: (doctorId: string) => request<void>(`/admin/doctors/${doctorId}`, { method: 'DELETE' }),
   },
 }
 

@@ -7,10 +7,10 @@ export default function PrivacyPolicy() {
       <h1 className="text-3xl font-bold text-ink-900">Privacy Policy</h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: {new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
-      <div className="mt-6 rounded-xl bg-accent-50 px-4 py-3 text-sm text-accent-700">
-        This is a working draft, not final legal advice. Before relying on it in production, have it reviewed by an
-        attorney admitted in South Africa, familiar with the Protection of Personal Information Act 4 of 2013
-        ("POPIA") and its treatment of health information as special personal information.
+      <div className="mt-6 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-600">
+        This policy describes how OpenDoc currently collects, stores, and uses your information. It is not a
+        substitute for legal advice, and OpenDoc does not claim it satisfies every requirement of the Protection of
+        Personal Information Act 4 of 2013 ("POPIA") on its own.
       </div>
 
       <div className="prose-sm mt-8 flex flex-col gap-6 text-sm leading-relaxed text-ink-700">
