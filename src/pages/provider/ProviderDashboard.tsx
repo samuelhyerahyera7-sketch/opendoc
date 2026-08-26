@@ -389,12 +389,27 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
   if (!profile) return <p className="text-ink-400">Loading schedule…</p>
 
   const dayColumns = buildDayColumns()
-  const openByKey = new Map(profile.slots.filter((s) => s.date).map((s) => [`${s.date}|${s.time}`, s.id]))
+  const visibleIsos = new Set(dayColumns.map((c) => c.iso))
+
+  // A key can map to more than one slot id if a duplicate was created (e.g. a
+  // double click before the button disabled). Keep the first id as "the"
+  // open slot for that cell; any others are surfaced below for cleanup
+  // instead of silently disappearing.
+  const idsByKey = new Map<string, number[]>()
+  for (const s of profile.slots) {
+    if (!s.date || !visibleIsos.has(s.date)) continue
+    const key = `${s.date}|${s.time}`
+    idsByKey.set(key, [...(idsByKey.get(key) ?? []), s.id])
+  }
+  const openByKey = new Map(Array.from(idsByKey, ([key, ids]) => [key, ids[0]]))
   const bookedKeys = new Set(
     appointments.filter((a) => a.status !== 'cancelled').map((a) => `${a.day_label}|${a.time_label}`),
   )
-  const visibleIsos = new Set(dayColumns.map((c) => c.iso))
-  const offGridSlots = profile.slots.filter((s) => !s.date || !visibleIsos.has(s.date))
+  const offGridSlots = profile.slots.filter((s) => {
+    if (!s.date || !visibleIsos.has(s.date)) return true
+    const ids = idsByKey.get(`${s.date}|${s.time}`) ?? []
+    return ids.indexOf(s.id) > 0
+  })
 
   function cellFor(col: DayColumn, time: string): CalendarCell {
     const key = `${col.iso}|${time}`
@@ -501,7 +516,7 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
       {offGridSlots.length > 0 && (
         <div className="mt-6 rounded-2xl border border-ink-100 bg-white p-6">
           <h3 className="font-bold text-ink-900">Other open slots</h3>
-          <p className="mt-1 text-sm text-ink-500">Slots outside the current 7-day calendar view (e.g. added before dates existed, or further out than a week).</p>
+          <p className="mt-1 text-sm text-ink-500">Slots outside the current 7-day calendar view, or duplicate times for a slot already shown above — safe to remove.</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {offGridSlots.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-lg border border-ink-200 px-3 py-2 text-sm">

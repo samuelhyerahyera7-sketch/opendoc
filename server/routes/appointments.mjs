@@ -372,6 +372,18 @@ router.post('/doctors/me/slots', requireAuth, async (req, res) => {
   const { day, time, date } = req.body
   if (!day || !time) return res.status(400).json({ error: 'day and time are required' })
   if (date && Number.isNaN(Date.parse(date))) return res.status(400).json({ error: 'Invalid date' })
+
+  // Idempotent: if this doctor already has an open (unbooked) slot for the
+  // same day/time, return it instead of creating a duplicate — avoids
+  // double-booked-looking duplicate time buttons from a double click.
+  const { rows: existing } = await pool.query(
+    'SELECT id FROM doctor_slots WHERE doctor_id = $1 AND day_label = $2 AND time_label = $3 AND is_booked = FALSE LIMIT 1',
+    [req.doctorId, day, time],
+  )
+  if (existing[0]) {
+    return res.status(200).json({ id: existing[0].id, day, time, date: date || null })
+  }
+
   const { rows } = await pool.query(
     'INSERT INTO doctor_slots (doctor_id, day_label, time_label, slot_date) VALUES ($1, $2, $3, $4) RETURNING id',
     [req.doctorId, day, time, date || null],

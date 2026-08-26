@@ -31,13 +31,28 @@ export async function serializeDoctor(row, { includePrivate = false, distanceKm 
     reviewCount: row.review_count,
     verificationStatus: row.verification_status || 'pending',
     insurances: insurancesResult.rows.map((r) => r.insurance),
-    slots: slotsResult.rows.map((s) => ({
-      id: s.id,
-      day: s.day_label,
-      time: s.time_label,
-      date: s.slot_date ? s.slot_date.toISOString().slice(0, 10) : null,
-    })),
+    slots: [],
   }
+
+  // Patients booking never need to see two identical-looking slots for the
+  // same day/time (a leftover duplicate row) — collapse those. The doctor's
+  // own dashboard keeps every row so duplicates stay visible to clean up.
+  let slotRows = slotsResult.rows
+  if (!includePrivate) {
+    const seen = new Set()
+    slotRows = slotRows.filter((s) => {
+      const key = `${s.day_label}|${s.time_label}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+  out.slots = slotRows.map((s) => ({
+    id: s.id,
+    day: s.day_label,
+    time: s.time_label,
+    date: s.slot_date ? s.slot_date.toISOString().slice(0, 10) : null,
+  }))
 
   if (includePrivate) {
     out.email = row.email
