@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Menu, User, X } from 'lucide-react'
 import { useState } from 'react'
 import { useDoctorAuth } from '../context/DoctorAuthContext'
@@ -8,8 +8,14 @@ import logoIcon from '../assets/opendoc-icon.png'
 export default function Header() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
   const { doctor } = useDoctorAuth()
   const { patient } = usePatientAuth()
+  // Doctors have their own dashboard header with their name and logout — the
+  // separate patient "Log In" link here is a different account system and
+  // just reads as "it doesn't know I'm logged in" when a doctor sees it.
+  const onProviderPages = location.pathname.startsWith('/provider')
+  const showPatientLink = !onProviderPages || !!patient
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur">
@@ -38,12 +44,14 @@ export default function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to={patient ? '/patient/dashboard' : '/patient/login'}
-            className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50"
-          >
-            <User size={15} /> {patient ? patient.firstName : 'Log In'}
-          </Link>
+          {showPatientLink && (
+            <Link
+              to={patient ? '/patient/dashboard' : '/patient/login'}
+              className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50"
+            >
+              <User size={15} /> {patient ? patient.firstName : 'Log In'}
+            </Link>
+          )}
           {doctor ? (
             <Link
               to="/provider/dashboard"
@@ -90,13 +98,15 @@ export default function Header() {
             <Link onClick={() => setOpen(false)} to="/for-providers" className="rounded-md px-2 py-2 hover:bg-ink-50">
               For Providers
             </Link>
-            <Link
-              onClick={() => setOpen(false)}
-              to={patient ? '/patient/dashboard' : '/patient/login'}
-              className="rounded-md px-2 py-2 hover:bg-ink-50"
-            >
-              {patient ? `My Account (${patient.firstName})` : 'Log In'}
-            </Link>
+            {showPatientLink && (
+              <Link
+                onClick={() => setOpen(false)}
+                to={patient ? '/patient/dashboard' : '/patient/login'}
+                className="rounded-md px-2 py-2 hover:bg-ink-50"
+              >
+                {patient ? `My Account (${patient.firstName})` : 'Log In'}
+              </Link>
+            )}
             {doctor ? (
               <Link
                 onClick={() => setOpen(false)}

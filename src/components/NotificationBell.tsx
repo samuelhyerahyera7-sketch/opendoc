@@ -101,7 +101,7 @@ export default function NotificationBell({ token, variant = 'doctor' }: { token:
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border border-ink-100 bg-white shadow-lg">
+        <div className="fixed inset-x-4 top-16 z-20 mx-auto w-auto max-w-sm rounded-2xl border border-ink-100 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mx-0 sm:mt-2 sm:w-80">
           <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
             <h3 className="text-sm font-bold text-ink-900">Notifications</h3>
             {unreadCount > 0 && (
