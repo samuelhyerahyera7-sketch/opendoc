@@ -853,6 +853,7 @@ function FileRow({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<DirectoryDoctor[]>([])
   const [message, setMessage] = useState('')
+  const [consentConfirmed, setConsentConfirmed] = useState(false)
   const [sending, setSending] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -869,15 +870,20 @@ function FileRow({
   }, [query, token])
 
   async function handleTransfer(toDoctor: DirectoryDoctor) {
+    if (!consentConfirmed) {
+      setError('Please confirm the patient has consented to this transfer.')
+      return
+    }
     setError(null)
     setSending(true)
     try {
-      await api.transferFile(token, file.id, toDoctor.id, message)
+      await api.transferFile(token, file.id, toDoctor.id, consentConfirmed, message)
       setSentTo(toDoctor.name)
       setShowTransfer(false)
       setQuery('')
       setResults([])
       setMessage('')
+      setConsentConfirmed(false)
       onTransferred()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Transfer failed. Please try again.')
@@ -927,12 +933,25 @@ function FileRow({
             onChange={(e) => setMessage(e.target.value)}
             className="mt-2 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
           />
+          <label className="mt-3 flex items-start gap-2 text-xs text-ink-600">
+            <input
+              type="checkbox"
+              checked={consentConfirmed}
+              onChange={(e) => setConsentConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-500 focus:ring-brand-400"
+            />
+            <span>
+              I confirm the patient has consented to this file being shared with another doctor. The receiving
+              doctor will be able to view and download it, but will not be able to forward it to anyone else — only
+              you can do that.
+            </span>
+          </label>
           {results.length > 0 && (
             <div className="mt-2 flex flex-col gap-1.5">
               {results.map((d) => (
                 <button
                   key={d.id}
-                  disabled={sending}
+                  disabled={sending || !consentConfirmed}
                   onClick={() => handleTransfer(d)}
                   className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-60"
                 >

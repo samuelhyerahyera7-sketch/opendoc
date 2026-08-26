@@ -315,11 +315,11 @@ export const api = {
   uploadFile: (token: string, formData: FormData) =>
     request<PatientFile>('/doctors/me/files', { method: 'POST', headers: authHeaders(token), body: formData }),
 
-  transferFile: (token: string, fileId: string, toDoctorId: string, message?: string) =>
+  transferFile: (token: string, fileId: string, toDoctorId: string, consentConfirmed: boolean, message?: string) =>
     request<{ id: string }>(`/files/${fileId}/transfer`, {
       method: 'POST',
       headers: authHeaders(token),
-      body: JSON.stringify({ toDoctorId, message }),
+      body: JSON.stringify({ toDoctorId, message, consentConfirmed }),
     }),
 
   searchDirectory: (token: string, q: string) =>
