@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Menu, User, X } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { LayoutDashboard, LogOut, Menu, User, X } from 'lucide-react'
 import { useState } from 'react'
 import { useDoctorAuth } from '../context/DoctorAuthContext'
 import { usePatientAuth } from '../context/PatientAuthContext'
@@ -8,8 +8,67 @@ import logoIcon from '../assets/opendoc-icon.png'
 export default function Header() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const { doctor } = useDoctorAuth()
+  const location = useLocation()
+  const { doctor, logout: doctorLogout } = useDoctorAuth()
   const { patient } = usePatientAuth()
+
+  // The provider area gets its own header identity — no patient-facing nav
+  // (Medical Aid, Find Care, patient login) — instead of blending both
+  // audiences into one nav bar on every page. Public/patient pages keep the
+  // regular patient-facing header below.
+  const onProviderPages = location.pathname.startsWith('/provider')
+
+  if (onProviderPages) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link to={doctor ? '/provider/dashboard' : '/'} className="flex items-center gap-2">
+              <img src={logoIcon} alt="OpenDoc" className="h-9 w-auto" />
+              <span className="text-xl font-extrabold tracking-tight">
+                <span className="text-ink-900">open</span>
+                <span className="text-brand-500">doc</span>
+              </span>
+            </Link>
+            <span className="rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold text-ink-500">
+              Provider Portal
+            </span>
+          </div>
+
+          {doctor ? (
+            <button
+              onClick={() => {
+                doctorLogout()
+                navigate('/')
+              }}
+              className="flex items-center gap-2 rounded-full border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50"
+            >
+              <LogOut size={15} /> Log out
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/provider/login"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/provider/signup"
+                className="rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
+              >
+                List your practice
+              </Link>
+              <Link to="/" className="hidden text-sm font-medium text-ink-500 hover:text-brand-600 sm:block">
+                Looking for a doctor instead?
+              </Link>
+            </div>
+          )}
+        </div>
+      </header>
+    )
+  }
+
   // The patient "Log In" link is a separate account system from the doctor
   // one. A doctor who is logged in (with their own Dashboard button right
   // there) but has no patient account has no use for it — on any page, not

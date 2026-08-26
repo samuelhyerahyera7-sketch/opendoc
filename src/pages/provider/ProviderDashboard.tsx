@@ -7,7 +7,6 @@ import {
   Globe,
   Inbox,
   Loader2,
-  LogOut,
   Mail,
   Send,
   Trash2,
@@ -24,7 +23,7 @@ import NotificationBell from '../../components/NotificationBell'
 type Tab = 'appointments' | 'schedule' | 'files' | 'profile'
 
 export default function ProviderDashboard() {
-  const { token, doctor, loading, logout, refresh } = useDoctorAuth()
+  const { token, doctor, loading, refresh } = useDoctorAuth()
   const [tab, setTab] = useState<Tab>('appointments')
 
   if (loading) {
@@ -51,12 +50,6 @@ export default function ProviderDashboard() {
           </div>
           <div className="flex shrink-0 items-center justify-end gap-3">
             <NotificationBell token={token} />
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 rounded-full border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50"
-            >
-              <LogOut size={15} /> Log out
-            </button>
           </div>
         </div>
       </div>
