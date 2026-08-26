@@ -175,7 +175,7 @@ export default function Booking() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-ink-700">Reason for visit</label>
+              <label className="mb-1.5 block text-sm font-medium text-ink-700">Reason for visit (optional)</label>
               <textarea
                 rows={3}
                 value={form.reason}
@@ -183,6 +183,10 @@ export default function Booking() {
                 className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
                 placeholder="e.g. Annual checkup, skin concern..."
               />
+              <p className="mt-1.5 text-xs text-ink-400">
+                Optional — leave blank if you'd rather discuss it in person. Only visible to {doctor.name}, in line with our{' '}
+                <Link to="/privacy" target="_blank" className="underline hover:text-ink-600">Privacy Policy</Link>.
+              </p>
             </div>
           </div>
 

@@ -190,10 +190,15 @@ export default function DoctorProfile() {
                             <td key={col.iso} className={`p-0 ${col.iso === todayIso ? 'bg-brand-50/40' : ''}`}>
                               {slot ? (
                                 <button
-                                  onClick={() => setSelectedSlot({ id: slot.id, day: col.absoluteLabel, time })}
-                                  className={`h-8 w-full rounded-md border font-semibold transition ${
+                                  onClick={() =>
+                                    setSelectedSlot((prev) =>
+                                      prev?.id === slot.id ? null : { id: slot.id, day: col.absoluteLabel, time },
+                                    )
+                                  }
+                                  title={selectedSlot?.id === slot.id ? `${time} — click to unselect` : time}
+                                  className={`h-8 w-full rounded-md border-2 font-semibold transition ${
                                     selectedSlot?.id === slot.id
-                                      ? 'border-accent-500 bg-accent-500 text-white'
+                                      ? 'border-accent-700 bg-accent-500 text-white'
                                       : 'border-brand-300 bg-white text-ink-700 hover:bg-brand-50'
                                   }`}
                                 >
