@@ -5,6 +5,13 @@ import type { ApiDoctor } from '../api/client'
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 
+// On mobile, opening a Waze/Google Maps link with target="_blank" often stops
+// the OS from handing it off to the installed app — it just opens the web
+// version in the browser instead. Only use target="_blank" on desktop, where
+// there's no native app to hand off to anyway.
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+const LINK_TARGET_ATTR = IS_MOBILE ? '' : 'target="_blank" rel="noopener noreferrer"'
+
 export default function DoctorsMap({
   doctors,
   userLocation,
@@ -83,8 +90,8 @@ export default function DoctorsMap({
           <div style="font-size:12px;color:#67748c">${d.specialty}</div>
           ${d.distanceKm !== null ? `<div style="font-size:12px;color:#1fa898;font-weight:600;margin-top:2px">${d.distanceKm.toFixed(1)} km away</div>` : ''}
           <div style="display:flex;gap:6px;margin-top:8px">
-            <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:5px 10px;background:#1fa898;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Google Maps</a>
-            <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:5px 10px;background:#33ccff;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Waze</a>
+            <a href="${googleMapsUrl}" ${LINK_TARGET_ATTR} style="display:inline-block;padding:5px 10px;background:#1fa898;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Google Maps</a>
+            <a href="${wazeUrl}" ${LINK_TARGET_ATTR} style="display:inline-block;padding:5px 10px;background:#33ccff;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Waze</a>
           </div>
         </div>`,
       )

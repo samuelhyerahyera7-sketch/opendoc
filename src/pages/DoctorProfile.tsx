@@ -28,6 +28,7 @@ export default function DoctorProfile() {
   const [reviews, setReviews] = useState<Review[]>([])
   const [notFound, setNotFound] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<{ id: number; day: string; time: string } | null>(null)
+  const [selectedDayIso, setSelectedDayIso] = useState<string | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locating, setLocating] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
@@ -85,6 +86,9 @@ export default function DoctorProfile() {
   // usual half-hour slots, or a date beyond the visible window — can't be
   // placed on the grid, so list them separately rather than dropping them.
   const undatedSlots = doctor.slots.filter((s) => !isOnGrid(s))
+
+  const activeDay = activeDayColumns.find((c) => c.iso === selectedDayIso) ?? activeDayColumns[0] ?? null
+  const timesForActiveDay = activeDay ? TIME_OPTIONS.filter((t) => openSlotByKey.has(`${activeDay.iso}|${t}`)) : []
 
   function handleBook() {
     if (!selectedSlot || !doctor) return
@@ -249,49 +253,54 @@ export default function DoctorProfile() {
             ) : (
               <>
                 {activeDayColumns.length > 0 && (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="border-separate border-spacing-1 text-xs">
-                      <thead>
-                        <tr>
-                          {activeDayColumns.map((col) => (
-                            <th key={col.iso} className="pb-1 text-center font-semibold text-ink-600">
-                              {col.headerLabel}
-                              {col.headerLabel !== col.absoluteLabel && (
-                                <span className="block text-[10px] font-normal text-ink-400">{col.absoluteLabel}</span>
-                              )}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {TIME_OPTIONS.filter((time) => activeDayColumns.some((col) => openSlotByKey.has(`${col.iso}|${time}`))).map(
-                          (time) => (
-                            <tr key={time}>
-                              {activeDayColumns.map((col) => {
-                                const slot = openSlotByKey.get(`${col.iso}|${time}`)
-                                return (
-                                  <td key={col.iso} className="p-0 text-center">
-                                    {slot ? (
-                                      <button
-                                        onClick={() => setSelectedSlot({ id: slot.id, day: col.absoluteLabel, time })}
-                                        className={`w-full whitespace-nowrap rounded-lg border px-2.5 py-1.5 font-semibold ${
-                                          selectedSlot?.id === slot.id
-                                            ? 'border-accent-500 bg-accent-50 text-accent-600'
-                                            : 'border-ink-200 text-ink-700 hover:border-brand-300'
-                                        }`}
-                                      >
-                                        {time}
-                                      </button>
-                                    ) : null}
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          ),
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                      {activeDayColumns.map((col) => {
+                        const isSelected = activeDay?.iso === col.iso
+                        const weekday = col.absoluteLabel.split(',')[0]
+                        const dayNum = col.iso.slice(-2).replace(/^0/, '')
+                        return (
+                          <button
+                            key={col.iso}
+                            onClick={() => { setSelectedDayIso(col.iso); setSelectedSlot(null) }}
+                            className={`flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-3.5 py-2 ${
+                              isSelected ? 'border-brand-500 bg-brand-500 text-white' : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                            }`}
+                          >
+                            <span className={`text-[10px] font-semibold uppercase ${isSelected ? 'text-white/80' : 'text-ink-400'}`}>
+                              {weekday}
+                            </span>
+                            <span className="text-sm font-bold">{dayNum}</span>
+                            {(col.headerLabel === 'Today' || col.headerLabel === 'Tomorrow') && (
+                              <span className={`text-[9px] font-semibold ${isSelected ? 'text-white/80' : 'text-brand-500'}`}>
+                                {col.headerLabel}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      {timesForActiveDay.map((time) => {
+                        const slot = activeDay ? openSlotByKey.get(`${activeDay.iso}|${time}`) : undefined
+                        if (!slot || !activeDay) return null
+                        return (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSelectedSlot({ id: slot.id, day: activeDay.absoluteLabel, time })}
+                            className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
+                              selectedSlot?.id === slot.id
+                                ? 'border-accent-500 bg-accent-50 text-accent-600'
+                                : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                            }`}
+                          >
+                            {time}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
                 )}
 
                 {undatedSlots.length > 0 && (
