@@ -14,6 +14,21 @@ type ViewMode = 'list' | 'map'
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
 
+const LANGUAGE_OPTIONS = [
+  'Afrikaans',
+  'English',
+  'isiZulu',
+  'isiXhosa',
+  'Sepedi',
+  'Setswana',
+  'Sesotho',
+  'Xitsonga',
+  'siSwati',
+  'Tshivenda',
+  'isiNdebele',
+  'Portuguese',
+]
+
 export default function SearchResults() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -28,6 +43,7 @@ export default function SearchResults() {
 
   const [sort, setSort] = useState<SortKey>(hasLocation ? 'distance' : 'relevance')
   const [insuranceFilter, setInsuranceFilter] = useState<string>('')
+  const [languageFilter, setLanguageFilter] = useState<string>('')
   const [acceptingOnly, setAcceptingOnly] = useState(false)
   const [radiusKm, setRadiusKm] = useState(25)
 
@@ -53,6 +69,7 @@ export default function SearchResults() {
       .searchDoctors({
         q,
         insurance: insuranceFilter,
+        language: languageFilter,
         acceptingOnly,
         sort,
         lat: hasLocation ? lat : undefined,
@@ -62,7 +79,7 @@ export default function SearchResults() {
       .then(setResults)
       .catch(() => setError('Could not load doctors right now. Please try again.'))
       .finally(() => setLoading(false))
-  }, [q, insuranceFilter, acceptingOnly, sort, hasLocation, lat, lng, radiusKm])
+  }, [q, insuranceFilter, languageFilter, acceptingOnly, sort, hasLocation, lat, lng, radiusKm])
 
   const seoTitle = [q || 'Doctors', loc ? `near ${loc}` : null].filter(Boolean).join(' ')
 
@@ -123,6 +140,21 @@ export default function SearchResults() {
                   placeholder="Any medical aid"
                 />
                 <p className="mt-1.5 text-xs text-ink-400">Only show doctors who accept your plan.</p>
+              </div>
+
+              <div className="mt-5">
+                <p className="mb-2 text-sm font-semibold text-ink-900">Language</p>
+                <select
+                  value={languageFilter}
+                  onChange={(e) => setLanguageFilter(e.target.value)}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
+                >
+                  <option value="">Any language</option>
+                  {LANGUAGE_OPTIONS.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-ink-400">Only show doctors who speak this language.</p>
               </div>
 
               <div className="mt-6">

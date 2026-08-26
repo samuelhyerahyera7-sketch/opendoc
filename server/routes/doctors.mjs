@@ -67,7 +67,7 @@ router.get('/insurances/stats', async (req, res) => {
 })
 
 router.get('/doctors', async (req, res) => {
-  const { q = '', insurance = '', specialty = '', acceptingOnly, sort = 'relevance', lat, lng, radiusKm } = req.query
+  const { q = '', insurance = '', specialty = '', language = '', acceptingOnly, sort = 'relevance', lat, lng, radiusKm } = req.query
   const userLat = lat !== undefined ? parseFloat(lat) : null
   const userLng = lng !== undefined ? parseFloat(lng) : null
   const hasLocation = userLat !== null && userLng !== null && !Number.isNaN(userLat) && !Number.isNaN(userLng)
@@ -88,6 +88,11 @@ router.get('/doctors', async (req, res) => {
 
   if (specialty) {
     filtered = filtered.filter((d) => d.specialty === specialty)
+  }
+
+  if (language) {
+    const lang = String(language).trim().toLowerCase()
+    filtered = filtered.filter((d) => (d.languages || []).some((l) => l.toLowerCase() === lang))
   }
 
   if (insurance === CASH_OPTION) {
@@ -130,12 +135,13 @@ router.get('/doctors/me', requireAuth, async (req, res) => {
 })
 
 router.patch('/doctors/me', requireAuth, async (req, res) => {
-  const { bio, address, city, lat, lng, acceptingNew, acceptsCash, insurances } = req.body
+  const { bio, address, city, lat, lng, acceptingNew, acceptsCash, insurances, languages } = req.body
 
   await pool.query(
     `UPDATE doctors SET bio = COALESCE($1, bio), address = COALESCE($2, address), city = COALESCE($3, city),
        lat = COALESCE($4, lat), lng = COALESCE($5, lng),
-       accepting_new = COALESCE($6, accepting_new), accepts_cash = COALESCE($7, accepts_cash) WHERE id = $8`,
+       accepting_new = COALESCE($6, accepting_new), accepts_cash = COALESCE($7, accepts_cash),
+       languages = COALESCE($8, languages) WHERE id = $9`,
     [
       bio ?? null,
       address ?? null,
@@ -144,6 +150,7 @@ router.patch('/doctors/me', requireAuth, async (req, res) => {
       typeof lng === 'number' ? lng : null,
       acceptingNew === undefined ? null : !!acceptingNew,
       acceptsCash === undefined ? null : !!acceptsCash,
+      Array.isArray(languages) && languages.length > 0 ? JSON.stringify(languages) : null,
       req.doctorId,
     ],
   )

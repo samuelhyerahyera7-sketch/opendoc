@@ -4,6 +4,7 @@ import {
   CalendarPlus,
   Camera,
   FileUp,
+  Globe,
   Inbox,
   Loader2,
   LogOut,
@@ -18,7 +19,22 @@ import { api, ApiError, type ApiDoctor, type Appointment, type DirectoryDoctor, 
 import VerificationBadge from '../../components/VerificationBadge'
 import NotificationBell from '../../components/NotificationBell'
 
-type Tab = 'appointments' | 'schedule' | 'files'
+type Tab = 'appointments' | 'schedule' | 'files' | 'profile'
+
+const LANGUAGE_OPTIONS = [
+  'Afrikaans',
+  'English',
+  'isiZulu',
+  'isiXhosa',
+  'Sepedi',
+  'Setswana',
+  'Sesotho',
+  'Xitsonga',
+  'siSwati',
+  'Tshivenda',
+  'isiNdebele',
+  'Portuguese',
+]
 
 type DayColumn = { iso: string; headerLabel: string; absoluteLabel: string }
 
@@ -105,11 +121,15 @@ export default function ProviderDashboard() {
           <TabButton active={tab === 'files'} onClick={() => setTab('files')} icon={Send}>
             Patient Files
           </TabButton>
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon={Globe}>
+            Profile
+          </TabButton>
         </div>
 
         {tab === 'appointments' && <AppointmentsPanel token={token} />}
         {tab === 'schedule' && <SchedulePanel token={token} onSlotsChanged={refresh} />}
         {tab === 'files' && <FilesPanel token={token} />}
+        {tab === 'profile' && <ProfilePanel token={token} doctor={doctor} onUpdated={refresh} />}
       </div>
     </div>
   )
@@ -498,6 +518,72 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ProfilePanel({ token, doctor, onUpdated }: { token: string; doctor: ApiDoctor; onUpdated: () => void }) {
+  const [languages, setLanguages] = useState<string[]>(doctor.languages)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function toggleLanguage(lang: string) {
+    setSaved(false)
+    setLanguages((prev) => (prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]))
+  }
+
+  async function handleSave() {
+    if (languages.length === 0) {
+      setError('Select at least one language.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await api.updateMyProfile(token, { languages })
+      onUpdated()
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save your languages.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-ink-100 bg-white p-6">
+      <h2 className="text-lg font-bold text-ink-900">Languages you speak</h2>
+      <p className="mt-1 text-sm text-ink-500">
+        Patients can filter search results by language — select every language you're comfortable consulting in.
+      </p>
+      {error && <div className="mt-3 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">{error}</div>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {LANGUAGE_OPTIONS.map((lang) => (
+          <button
+            key={lang}
+            type="button"
+            onClick={() => toggleLanguage(lang)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              languages.includes(lang)
+                ? 'border-brand-500 bg-brand-500 text-white'
+                : 'border-ink-200 text-ink-600 hover:border-brand-300'
+            }`}
+          >
+            {lang}
+          </button>
+        ))}
+      </div>
+      <div className="mt-5 flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
+        >
+          {saving ? 'Saving…' : 'Save languages'}
+        </button>
+        {saved && <span className="text-sm font-medium text-brand-600">Saved.</span>}
+      </div>
     </div>
   )
 }

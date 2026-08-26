@@ -1,18 +1,47 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ShieldCheck } from 'lucide-react'
+import { ArrowRight, LocateFixed, ShieldCheck } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import MedicalAidLogo from '../components/MedicalAidBadge'
-import { api, type InsuranceStat } from '../api/client'
+import DoctorCard from '../components/DoctorCard'
+import { api, type ApiDoctor, type InsuranceStat } from '../api/client'
 import { CASH_LABEL, slugifyMedicalAid } from '../data/medicalAids'
 import Seo from '../components/Seo'
 
+const NEARBY_RADIUS_KM = 5
+
 export default function Home() {
   const [insuranceStats, setInsuranceStats] = useState<InsuranceStat[]>([])
+  const [nearby, setNearby] = useState<ApiDoctor[] | null>(null)
+  const [nearbyCoords, setNearbyCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [nearbyState, setNearbyState] = useState<'idle' | 'locating' | 'error'>('idle')
 
   useEffect(() => {
     api.getInsuranceStats().then(setInsuranceStats).catch(() => {})
   }, [])
+
+  function findNearbyDoctors() {
+    if (!navigator.geolocation) {
+      setNearbyState('error')
+      return
+    }
+    setNearbyState('locating')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setNearbyCoords(coords)
+        api
+          .searchDoctors({ ...coords, radiusKm: NEARBY_RADIUS_KM, sort: 'distance' })
+          .then((doctors) => {
+            setNearby(doctors)
+            setNearbyState('idle')
+          })
+          .catch(() => setNearbyState('error'))
+      },
+      () => setNearbyState('error'),
+      { timeout: 10000 },
+    )
+  }
 
   const cashStat = insuranceStats.find((s) => s.isCash)
   const topSchemes = insuranceStats
@@ -69,6 +98,54 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col items-center gap-4 text-center">
+          <h2 className="text-2xl font-bold text-ink-900 sm:text-3xl">Doctors near me</h2>
+          <p className="mx-auto max-w-xl text-ink-500">
+            Share your location to see doctors within {NEARBY_RADIUS_KM} km of you.
+          </p>
+          {nearbyState !== 'locating' && !nearby && (
+            <button
+              onClick={findNearbyDoctors}
+              className="flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-600"
+            >
+              <LocateFixed size={16} /> Find doctors near me
+            </button>
+          )}
+          {nearbyState === 'locating' && <p className="text-sm font-medium text-brand-600">Finding your location…</p>}
+          {nearbyState === 'error' && (
+            <p className="text-sm text-accent-600">Couldn't get your location — check permissions and try again.</p>
+          )}
+        </div>
+
+        {nearby && (
+          <div className="mb-16">
+            {nearby.length === 0 ? (
+              <p className="text-center text-ink-500">
+                No doctors found within {NEARBY_RADIUS_KM} km yet.{' '}
+                <Link to="/search" className="font-semibold text-brand-600 hover:underline">Search all of South Africa</Link>
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  {nearby.slice(0, 5).map((d) => (
+                    <DoctorCard key={d.id} doctor={d} />
+                  ))}
+                </div>
+                <div className="mt-6 text-center">
+                  <Link
+                    to={nearbyCoords ? `/search?lat=${nearbyCoords.lat}&lng=${nearbyCoords.lng}` : '/search'}
+                    className="font-semibold text-brand-600 hover:underline"
+                  >
+                    See all nearby results <ArrowRight size={14} className="inline" />
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <h2 className="text-2xl font-bold text-ink-900 sm:text-3xl">Or pick your scheme to start</h2>
           <p className="mx-auto mt-2 max-w-xl text-ink-500">

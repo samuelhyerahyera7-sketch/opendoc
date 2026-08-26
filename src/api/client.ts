@@ -165,6 +165,7 @@ export const api = {
     q?: string
     insurance?: string
     specialty?: string
+    language?: string
     acceptingOnly?: boolean
     sort?: string
     lat?: number
@@ -175,6 +176,7 @@ export const api = {
     if (params.q) search.set('q', params.q)
     if (params.insurance) search.set('insurance', params.insurance)
     if (params.specialty) search.set('specialty', params.specialty)
+    if (params.language) search.set('language', params.language)
     if (params.acceptingOnly) search.set('acceptingOnly', 'true')
     if (params.sort) search.set('sort', params.sort)
     if (params.lat !== undefined) search.set('lat', String(params.lat))
@@ -224,6 +226,7 @@ export const api = {
       acceptingNew: boolean
       acceptsCash: boolean
       insurances: string[]
+      languages: string[]
     }>,
   ) =>
     request<ApiDoctor>('/doctors/me', {
