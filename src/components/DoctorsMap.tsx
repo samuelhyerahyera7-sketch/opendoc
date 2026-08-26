@@ -75,13 +75,17 @@ export default function DoctorsMap({
       el.title = `${d.name}, ${d.credentials}`
       el.onclick = () => onSelectRef.current?.(d.id)
 
-      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
+      const wazeUrl = `https://waze.com/ul?ll=${d.lat},${d.lng}&navigate=yes`
       const popup = new mapboxgl.Popup({ offset: 20, closeButton: false }).setHTML(
         `<div style="font-family:inherit;min-width:160px">
           <div style="font-weight:700;font-size:13px;color:#232733">${d.name}, ${d.credentials}</div>
           <div style="font-size:12px;color:#67748c">${d.specialty}</div>
           ${d.distanceKm !== null ? `<div style="font-size:12px;color:#1fa898;font-weight:600;margin-top:2px">${d.distanceKm.toFixed(1)} km away</div>` : ''}
-          <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;padding:5px 12px;background:#1fa898;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Get directions</a>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:5px 10px;background:#1fa898;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Google Maps</a>
+            <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:5px 10px;background:#33ccff;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Waze</a>
+          </div>
         </div>`,
       )
 

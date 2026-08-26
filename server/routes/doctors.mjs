@@ -196,6 +196,34 @@ router.get('/doctors/directory/search', requireAuth, async (req, res) => {
   res.json(rows.map((r) => ({ id: r.id, name: r.name, credentials: r.credentials, specialty: r.specialty, email: r.email, photo: r.photo })))
 })
 
+// Must be registered before GET /doctors/:id below — otherwise Express
+// matches this path as :id="verify-email" and the real handler is never
+// reached (this is exactly what made every verification link appear
+// "invalid or expired" regardless of the token).
+router.get('/doctors/verify-email', async (req, res) => {
+  const token = String(req.query.token || '')
+  const { rows } = await pool.query(
+    'SELECT doctor_id, expires_at, used_at FROM action_tokens WHERE token = $1 AND purpose = $2',
+    [token, 'verify_email'],
+  )
+  const row = rows[0]
+  if (!row) return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+
+  const { rows: doctorRows } = await pool.query('SELECT email_verified FROM doctors WHERE id = $1', [row.doctor_id])
+  if (row.used_at || doctorRows[0]?.email_verified) {
+    // Already consumed — commonly by an email client's link-safety scanner
+    // opening it before the person does. Verifying is idempotent, so a
+    // repeat visit is still a success rather than "invalid or expired".
+    return res.json({ ok: true })
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+  }
+  await pool.query('UPDATE action_tokens SET used_at = now() WHERE token = $1', [token])
+  await pool.query('UPDATE doctors SET email_verified = TRUE WHERE id = $1', [row.doctor_id])
+  res.json({ ok: true })
+})
+
 router.get('/doctors/:id', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [req.params.id])
   if (!rows[0]) return res.status(404).json({ error: 'Doctor not found' })
@@ -266,13 +294,6 @@ router.post('/doctors/login', authLimiter, async (req, res) => {
   }
   const token = await createSession(row.id)
   res.json({ token, doctor: await serializeDoctor(row, { includePrivate: true }) })
-})
-
-router.get('/doctors/verify-email', async (req, res) => {
-  const doctorId = await consumeActionToken(String(req.query.token || ''), 'verify_email')
-  if (!doctorId) return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
-  await pool.query('UPDATE doctors SET email_verified = TRUE WHERE id = $1', [doctorId])
-  res.json({ ok: true })
 })
 
 router.post('/doctors/resend-verification', requireAuth, authLimiter, async (req, res) => {

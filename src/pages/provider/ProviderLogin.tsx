@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
@@ -10,7 +10,11 @@ export default function ProviderLogin() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
-  const { login } = useDoctorAuth()
+  const { token, doctor, loading, login } = useDoctorAuth()
+
+  if (!loading && token && doctor) {
+    return <Navigate to="/provider/dashboard" replace />
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

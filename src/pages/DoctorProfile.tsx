@@ -5,6 +5,7 @@ import { api, type ApiDoctor, type Review } from '../api/client'
 import StarRating from '../components/StarRating'
 import { MedicalAidPill } from '../components/MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
+import { TIME_OPTIONS, buildDayColumns } from '../lib/schedule'
 import VerificationBadge from '../components/VerificationBadge'
 import Seo from '../components/Seo'
 
@@ -26,8 +27,7 @@ export default function DoctorProfile() {
   const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
   const [notFound, setNotFound] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [selectedSlot, setSelectedSlot] = useState<{ id: number; time: string } | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<{ id: number; day: string; time: string } | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locating, setLocating] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
@@ -56,11 +56,7 @@ export default function DoctorProfile() {
     if (!id) return
     api
       .getDoctor(id)
-      .then((d) => {
-        setDoctor(d)
-        const firstDay = d.slots[0]?.day ?? null
-        setSelectedDay(firstDay)
-      })
+      .then(setDoctor)
       .catch(() => setNotFound(true))
     api.getDoctorReviews(id).then(setReviews).catch(() => {})
   }, [id])
@@ -80,12 +76,21 @@ export default function DoctorProfile() {
     return <div className="flex flex-1 items-center justify-center py-24 text-ink-400">Loading doctor…</div>
   }
 
-  const days = Array.from(new Set(doctor.slots.map((s) => s.day)))
-  const slotsForDay = doctor.slots.filter((s) => s.day === selectedDay)
+  const dayColumns = buildDayColumns()
+  const isOnGrid = (s: ApiDoctor['slots'][number]) =>
+    !!s.date && TIME_OPTIONS.includes(s.time) && dayColumns.some((c) => c.iso === s.date)
+  const openSlotByKey = new Map(doctor.slots.filter(isOnGrid).map((s) => [`${s.date}|${s.time}`, s]))
+  const activeDayColumns = dayColumns.filter((c) => TIME_OPTIONS.some((t) => openSlotByKey.has(`${c.iso}|${t}`)))
+  // Slots that don't fit the standard grid — no date, a time outside the
+  // usual half-hour slots, or a date beyond the visible window — can't be
+  // placed on the grid, so list them separately rather than dropping them.
+  const undatedSlots = doctor.slots.filter((s) => !isOnGrid(s))
 
   function handleBook() {
-    if (!selectedSlot || !selectedDay || !doctor) return
-    navigate(`/booking/${doctor.id}?slotId=${selectedSlot.id}&day=${encodeURIComponent(selectedDay)}&time=${encodeURIComponent(selectedSlot.time)}`)
+    if (!selectedSlot || !doctor) return
+    navigate(
+      `/booking/${doctor.id}?slotId=${selectedSlot.id}&day=${encodeURIComponent(selectedSlot.day)}&time=${encodeURIComponent(selectedSlot.time)}`,
+    )
   }
 
   const insuranceList = doctor.insurances.filter((i) => i !== CASH_LABEL)
@@ -239,46 +244,80 @@ export default function DoctorProfile() {
               <h3 className="font-bold">Book an appointment</h3>
             </div>
 
-            {days.length === 0 ? (
+            {activeDayColumns.length === 0 && undatedSlots.length === 0 ? (
               <p className="mt-4 text-sm text-ink-500">This doctor has no open appointment times right now.</p>
             ) : (
               <>
-                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                  {days.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => { setSelectedDay(d); setSelectedSlot(null) }}
-                      className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${
-                        selectedDay === d ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
+                {activeDayColumns.length > 0 && (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="border-separate border-spacing-1 text-xs">
+                      <thead>
+                        <tr>
+                          {activeDayColumns.map((col) => (
+                            <th key={col.iso} className="pb-1 text-center font-semibold text-ink-600">
+                              {col.headerLabel}
+                              {col.headerLabel !== col.absoluteLabel && (
+                                <span className="block text-[10px] font-normal text-ink-400">{col.absoluteLabel}</span>
+                              )}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {TIME_OPTIONS.filter((time) => activeDayColumns.some((col) => openSlotByKey.has(`${col.iso}|${time}`))).map(
+                          (time) => (
+                            <tr key={time}>
+                              {activeDayColumns.map((col) => {
+                                const slot = openSlotByKey.get(`${col.iso}|${time}`)
+                                return (
+                                  <td key={col.iso} className="p-0 text-center">
+                                    {slot ? (
+                                      <button
+                                        onClick={() => setSelectedSlot({ id: slot.id, day: col.absoluteLabel, time })}
+                                        className={`w-full whitespace-nowrap rounded-lg border px-2.5 py-1.5 font-semibold ${
+                                          selectedSlot?.id === slot.id
+                                            ? 'border-accent-500 bg-accent-50 text-accent-600'
+                                            : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                                        }`}
+                                      >
+                                        {time}
+                                      </button>
+                                    ) : null}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {slotsForDay.map((slot) => (
-                    <button
-                      key={slot.id}
-                      onClick={() => setSelectedSlot({ id: slot.id, time: slot.time })}
-                      className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
-                        selectedSlot?.id === slot.id
-                          ? 'border-accent-500 bg-accent-50 text-accent-600'
-                          : 'border-ink-200 text-ink-700 hover:border-brand-300'
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-                </div>
+                {undatedSlots.length > 0 && (
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {undatedSlots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        onClick={() => setSelectedSlot({ id: slot.id, day: slot.day, time: slot.time })}
+                        className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
+                          selectedSlot?.id === slot.id
+                            ? 'border-accent-500 bg-accent-50 text-accent-600'
+                            : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                        }`}
+                      >
+                        {slot.day} &middot; {slot.time}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <button
                   onClick={handleBook}
                   disabled={!selectedSlot}
                   className="mt-5 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:bg-ink-200 disabled:text-ink-400"
                 >
-                  {selectedSlot ? `Confirm ${selectedDay} at ${selectedSlot.time}` : 'Select a time'}
+                  {selectedSlot ? `Confirm ${selectedSlot.day} at ${selectedSlot.time}` : 'Select a time'}
                 </button>
               </>
             )}

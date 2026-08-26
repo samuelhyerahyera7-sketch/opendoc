@@ -128,9 +128,26 @@ router.post('/patients/me/notifications/read-all', requirePatientAuth, async (re
 })
 
 router.get('/patients/verify-email', async (req, res) => {
-  const patientId = await consumePatientActionToken(String(req.query.token || ''), 'verify_email')
-  if (!patientId) return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
-  await pool.query('UPDATE patients SET email_verified = TRUE WHERE id = $1', [patientId])
+  const token = String(req.query.token || '')
+  const { rows } = await pool.query(
+    'SELECT patient_id, expires_at, used_at FROM patient_action_tokens WHERE token = $1 AND purpose = $2',
+    [token, 'verify_email'],
+  )
+  const row = rows[0]
+  if (!row) return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+
+  const { rows: patientRows } = await pool.query('SELECT email_verified FROM patients WHERE id = $1', [row.patient_id])
+  if (row.used_at || patientRows[0]?.email_verified) {
+    // Already consumed — commonly by an email client's link-safety scanner
+    // opening it before the person does. Verifying is idempotent, so a
+    // repeat visit is still a success rather than "invalid or expired".
+    return res.json({ ok: true })
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return res.status(400).json({ error: 'This verification link is invalid or has expired.' })
+  }
+  await pool.query('UPDATE patient_action_tokens SET used_at = now() WHERE token = $1', [token])
+  await pool.query('UPDATE patients SET email_verified = TRUE WHERE id = $1', [row.patient_id])
   res.json({ ok: true })
 })
 

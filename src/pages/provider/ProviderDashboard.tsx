@@ -17,39 +17,11 @@ import {
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import { api, ApiError, type ApiDoctor, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
 import { LANGUAGE_OPTIONS } from '../../data/languages'
+import { TIME_OPTIONS, buildDayColumns, type DayColumn } from '../../lib/schedule'
 import VerificationBadge from '../../components/VerificationBadge'
 import NotificationBell from '../../components/NotificationBell'
 
 type Tab = 'appointments' | 'schedule' | 'files' | 'profile'
-
-type DayColumn = { iso: string; headerLabel: string; absoluteLabel: string }
-
-function buildDayColumns(): DayColumn[] {
-  const now = new Date()
-  const columns: DayColumn[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const absoluteLabel = d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })
-    const headerLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : absoluteLabel
-    columns.push({ iso, headerLabel, absoluteLabel })
-  }
-  return columns
-}
-
-function buildTimeOptions() {
-  const times: string[] = []
-  for (let hour = 8; hour <= 17; hour++) {
-    for (const minute of [0, 30]) {
-      if (hour === 17 && minute === 30) continue
-      const period = hour < 12 ? 'AM' : 'PM'
-      const displayHour = hour > 12 ? hour - 12 : hour
-      times.push(`${String(displayHour).padStart(2, '0')}:${minute === 0 ? '00' : '30'} ${period}`)
-    }
-  }
-  return times
-}
-const TIME_OPTIONS = buildTimeOptions()
 
 export default function ProviderDashboard() {
   const { token, doctor, loading, logout, refresh } = useDoctorAuth()
@@ -179,6 +151,11 @@ function PhotoUploader({
         <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
         <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
           {uploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
+        </span>
+        {/* Hover states don't exist on touchscreens, so this badge stays visible
+            at all times — otherwise there's no visual cue the photo is tappable. */}
+        <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-brand-500 text-white shadow-sm">
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
         </span>
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={uploading} className="sr-only" />
       </label>

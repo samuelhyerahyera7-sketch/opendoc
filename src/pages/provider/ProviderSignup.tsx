@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { api, ApiError, type Specialty } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
@@ -9,7 +9,7 @@ import { findLocationByName } from '../../data/saLocations'
 
 export default function ProviderSignup() {
   const navigate = useNavigate()
-  const { register } = useDoctorAuth()
+  const { token, doctor, loading, register } = useDoctorAuth()
   const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [medicalAids, setMedicalAids] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -84,6 +84,10 @@ export default function ProviderSignup() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (!loading && token && doctor) {
+    return <Navigate to="/provider/dashboard" replace />
   }
 
   return (
