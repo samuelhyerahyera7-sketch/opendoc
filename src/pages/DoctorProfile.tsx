@@ -81,13 +81,17 @@ export default function DoctorProfile() {
   const isOnGrid = (s: ApiDoctor['slots'][number]) =>
     !!s.date && TIME_OPTIONS.includes(s.time) && dayColumns.some((c) => c.iso === s.date)
   const openSlotByKey = new Map(doctor.slots.filter(isOnGrid).map((s) => [`${s.date}|${s.time}`, s]))
-  const activeDayColumns = dayColumns.filter((c) => TIME_OPTIONS.some((t) => openSlotByKey.has(`${c.iso}|${t}`)))
+  const dayHasSlots = (c: (typeof dayColumns)[number]) => TIME_OPTIONS.some((t) => openSlotByKey.has(`${c.iso}|${t}`))
+  const activeDayColumns = dayColumns.filter(dayHasSlots)
   // Slots that don't fit the standard grid — no date, a time outside the
   // usual half-hour slots, or a date beyond the visible window — can't be
   // placed on the grid, so list them separately rather than dropping them.
   const undatedSlots = doctor.slots.filter((s) => !isOnGrid(s))
 
-  const activeDay = activeDayColumns.find((c) => c.iso === selectedDayIso) ?? activeDayColumns[0] ?? null
+  // Always show the full week so this reads as a real calendar even when a
+  // doctor has only opened one or two slots — days with nothing available
+  // are still shown, just greyed out and unclickable, rather than vanishing.
+  const activeDay = dayColumns.find((c) => c.iso === selectedDayIso && dayHasSlots(c)) ?? activeDayColumns[0] ?? null
   const timesForActiveDay = activeDay ? TIME_OPTIONS.filter((t) => openSlotByKey.has(`${activeDay.iso}|${t}`)) : []
 
   function handleBook() {
@@ -252,55 +256,63 @@ export default function DoctorProfile() {
               <p className="mt-4 text-sm text-ink-500">This doctor has no open appointment times right now.</p>
             ) : (
               <>
-                {activeDayColumns.length > 0 && (
-                  <>
-                    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                      {activeDayColumns.map((col) => {
-                        const isSelected = activeDay?.iso === col.iso
-                        const weekday = col.absoluteLabel.split(',')[0]
-                        const dayNum = col.iso.slice(-2).replace(/^0/, '')
-                        return (
-                          <button
-                            key={col.iso}
-                            onClick={() => { setSelectedDayIso(col.iso); setSelectedSlot(null) }}
-                            className={`flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-3.5 py-2 ${
-                              isSelected ? 'border-brand-500 bg-brand-500 text-white' : 'border-ink-200 text-ink-700 hover:border-brand-300'
-                            }`}
-                          >
-                            <span className={`text-[10px] font-semibold uppercase ${isSelected ? 'text-white/80' : 'text-ink-400'}`}>
-                              {weekday}
-                            </span>
-                            <span className="text-sm font-bold">{dayNum}</span>
-                            {(col.headerLabel === 'Today' || col.headerLabel === 'Tomorrow') && (
-                              <span className={`text-[9px] font-semibold ${isSelected ? 'text-white/80' : 'text-brand-500'}`}>
-                                {col.headerLabel}
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {dayColumns.map((col) => {
+                    const available = dayHasSlots(col)
+                    const isSelected = available && activeDay?.iso === col.iso
+                    const weekday = col.absoluteLabel.split(',')[0]
+                    const dayNum = col.iso.slice(-2).replace(/^0/, '')
+                    return (
+                      <button
+                        key={col.iso}
+                        disabled={!available}
+                        onClick={() => { setSelectedDayIso(col.iso); setSelectedSlot(null) }}
+                        className={`flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-3.5 py-2 ${
+                          isSelected
+                            ? 'border-brand-500 bg-brand-500 text-white'
+                            : available
+                              ? 'border-ink-200 text-ink-700 hover:border-brand-300'
+                              : 'cursor-not-allowed border-ink-100 text-ink-300'
+                        }`}
+                      >
+                        <span className={`text-[10px] font-semibold uppercase ${isSelected ? 'text-white/80' : available ? 'text-ink-400' : 'text-ink-300'}`}>
+                          {weekday}
+                        </span>
+                        <span className="text-sm font-bold">{dayNum}</span>
+                        {(col.headerLabel === 'Today' || col.headerLabel === 'Tomorrow') && (
+                          <span className={`text-[9px] font-semibold ${isSelected ? 'text-white/80' : available ? 'text-brand-500' : 'text-ink-300'}`}>
+                            {col.headerLabel}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
 
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      {timesForActiveDay.map((time) => {
-                        const slot = activeDay ? openSlotByKey.get(`${activeDay.iso}|${time}`) : undefined
-                        if (!slot || !activeDay) return null
-                        return (
-                          <button
-                            key={slot.id}
-                            onClick={() => setSelectedSlot({ id: slot.id, day: activeDay.absoluteLabel, time })}
-                            className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
-                              selectedSlot?.id === slot.id
-                                ? 'border-accent-500 bg-accent-50 text-accent-600'
-                                : 'border-ink-200 text-ink-700 hover:border-brand-300'
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </>
+                {activeDay ? (
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {timesForActiveDay.map((time) => {
+                      const slot = openSlotByKey.get(`${activeDay.iso}|${time}`)
+                      if (!slot) return null
+                      return (
+                        <button
+                          key={slot.id}
+                          onClick={() => setSelectedSlot({ id: slot.id, day: activeDay.absoluteLabel, time })}
+                          className={`rounded-lg border px-2 py-2 text-xs font-semibold ${
+                            selectedSlot?.id === slot.id
+                              ? 'border-accent-500 bg-accent-50 text-accent-600'
+                              : 'border-ink-200 text-ink-700 hover:border-brand-300'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  activeDayColumns.length > 0 && (
+                    <p className="mt-4 text-sm text-ink-500">No times available that day — pick a highlighted day above.</p>
+                  )
                 )}
 
                 {undatedSlots.length > 0 && (
