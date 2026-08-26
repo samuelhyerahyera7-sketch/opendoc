@@ -43,6 +43,30 @@ router.patch('/admin/doctors/:id/location', requireAdmin, async (req, res) => {
   res.json(await serializeDoctor(rows[0], { includePrivate: true }))
 })
 
+// Lets an admin open a slot on a doctor's behalf for support purposes (e.g.
+// helping a doctor populate their calendar without needing their password).
+// Mirrors the idempotent behavior of the doctor's own POST /doctors/me/slots.
+router.post('/admin/doctors/:id/slots', requireAdmin, async (req, res) => {
+  const { day, time, date } = req.body
+  if (!day || !time) return res.status(400).json({ error: 'day and time are required' })
+  if (date && Number.isNaN(Date.parse(date))) return res.status(400).json({ error: 'Invalid date' })
+
+  const { rows: doctorRows } = await pool.query('SELECT id FROM doctors WHERE id = $1', [req.params.id])
+  if (!doctorRows[0]) return res.status(404).json({ error: 'Doctor not found' })
+
+  const { rows: existing } = await pool.query(
+    'SELECT id FROM doctor_slots WHERE doctor_id = $1 AND day_label = $2 AND time_label = $3 AND is_booked = FALSE LIMIT 1',
+    [req.params.id, day, time],
+  )
+  if (existing[0]) return res.status(200).json({ id: existing[0].id, day, time, date: date || null })
+
+  const { rows } = await pool.query(
+    'INSERT INTO doctor_slots (doctor_id, day_label, time_label, slot_date) VALUES ($1, $2, $3, $4) RETURNING id',
+    [req.params.id, day, time, date || null],
+  )
+  res.status(201).json({ id: rows[0].id, day, time, date: date || null })
+})
+
 router.post('/admin/doctors/:id/verify', requireAdmin, async (req, res) => {
   const { rows } = await pool.query(
     "UPDATE doctors SET verification_status = 'verified' WHERE id = $1 RETURNING *",
