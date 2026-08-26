@@ -16,25 +16,11 @@ import {
 } from 'lucide-react'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import { api, ApiError, type ApiDoctor, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
+import { LANGUAGE_OPTIONS } from '../../data/languages'
 import VerificationBadge from '../../components/VerificationBadge'
 import NotificationBell from '../../components/NotificationBell'
 
 type Tab = 'appointments' | 'schedule' | 'files' | 'profile'
-
-const LANGUAGE_OPTIONS = [
-  'Afrikaans',
-  'English',
-  'isiZulu',
-  'isiXhosa',
-  'Sepedi',
-  'Setswana',
-  'Sesotho',
-  'Xitsonga',
-  'siSwati',
-  'Tshivenda',
-  'isiNdebele',
-  'Portuguese',
-]
 
 type DayColumn = { iso: string; headerLabel: string; absoluteLabel: string }
 

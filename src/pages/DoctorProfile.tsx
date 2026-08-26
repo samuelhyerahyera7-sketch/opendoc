@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarDays, GraduationCap, Languages, LocateFixed, MapPin, ShieldCheck } from 'lucide-react'
 import { api, type ApiDoctor, type Review } from '../api/client'
@@ -68,6 +68,11 @@ export default function DoctorProfile() {
   useEffect(() => {
     if (notFound) navigate('/search', { replace: true })
   }, [notFound, navigate])
+
+  // Stable array identity so the map doesn't re-fit/reset its view on every
+  // unrelated re-render (e.g. toggling "Show my location") — only when the
+  // doctor itself changes.
+  const mapDoctors = useMemo(() => (doctor ? [doctor] : []), [doctor])
 
   if (notFound) return null
 
@@ -198,7 +203,7 @@ export default function DoctorProfile() {
                 )}
                 <div className="mt-4 h-72 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="h-full w-full animate-pulse bg-ink-50" />}>
-                    <DoctorsMap doctors={[doctor]} userLocation={userLocation ?? undefined} />
+                    <DoctorsMap doctors={mapDoctors} userLocation={userLocation ?? undefined} />
                   </Suspense>
                 </div>
                 <p className="mt-2 text-xs text-ink-400">Tap the pin for directions.</p>

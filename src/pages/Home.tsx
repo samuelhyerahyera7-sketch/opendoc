@@ -3,22 +3,51 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, LocateFixed, ShieldCheck } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import MedicalAidLogo from '../components/MedicalAidBadge'
+import MedicalAidSelect from '../components/MedicalAidSelect'
 import DoctorCard from '../components/DoctorCard'
-import { api, type ApiDoctor, type InsuranceStat } from '../api/client'
+import { api, type ApiDoctor, type InsuranceStat, type Specialty } from '../api/client'
 import { CASH_LABEL, slugifyMedicalAid } from '../data/medicalAids'
+import { LANGUAGE_OPTIONS } from '../data/languages'
 import Seo from '../components/Seo'
 
 const NEARBY_RADIUS_KM = 5
 
 export default function Home() {
   const [insuranceStats, setInsuranceStats] = useState<InsuranceStat[]>([])
-  const [nearby, setNearby] = useState<ApiDoctor[] | null>(null)
+  const [insurances, setInsurances] = useState<string[]>([])
+  const [specialties, setSpecialties] = useState<Specialty[]>([])
+
   const [nearbyCoords, setNearbyCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [nearby, setNearby] = useState<ApiDoctor[] | null>(null)
   const [nearbyState, setNearbyState] = useState<'idle' | 'locating' | 'error'>('idle')
+  const [nearbyInsurance, setNearbyInsurance] = useState('')
+  const [nearbyLanguage, setNearbyLanguage] = useState('')
+  const [nearbySpecialty, setNearbySpecialty] = useState('')
+  const [nearbyAcceptingOnly, setNearbyAcceptingOnly] = useState(false)
 
   useEffect(() => {
     api.getInsuranceStats().then(setInsuranceStats).catch(() => {})
+    api.getInsurances().then(setInsurances).catch(() => {})
+    api.getSpecialties().then(setSpecialties).catch(() => {})
   }, [])
+
+  function runNearbySearch(coords: { lat: number; lng: number }) {
+    api
+      .searchDoctors({
+        ...coords,
+        radiusKm: NEARBY_RADIUS_KM,
+        sort: 'distance',
+        insurance: nearbyInsurance,
+        language: nearbyLanguage,
+        specialty: nearbySpecialty,
+        acceptingOnly: nearbyAcceptingOnly,
+      })
+      .then((doctors) => {
+        setNearby(doctors)
+        setNearbyState('idle')
+      })
+      .catch(() => setNearbyState('error'))
+  }
 
   function findNearbyDoctors() {
     if (!navigator.geolocation) {
@@ -30,18 +59,17 @@ export default function Home() {
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         setNearbyCoords(coords)
-        api
-          .searchDoctors({ ...coords, radiusKm: NEARBY_RADIUS_KM, sort: 'distance' })
-          .then((doctors) => {
-            setNearby(doctors)
-            setNearbyState('idle')
-          })
-          .catch(() => setNearbyState('error'))
+        runNearbySearch(coords)
       },
       () => setNearbyState('error'),
       { timeout: 10000 },
     )
   }
+
+  useEffect(() => {
+    if (nearbyCoords) runNearbySearch(nearbyCoords)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearbyInsurance, nearbyLanguage, nearbySpecialty, nearbyAcceptingOnly])
 
   const cashStat = insuranceStats.find((s) => s.isCash)
   const topSchemes = insuranceStats
@@ -117,11 +145,51 @@ export default function Home() {
           )}
         </div>
 
+        {nearbyCoords && (
+          <div className="mx-auto mb-8 flex max-w-3xl flex-wrap items-center justify-center gap-3">
+            <MedicalAidSelect
+              value={nearbyInsurance}
+              onChange={setNearbyInsurance}
+              options={insurances}
+              placeholder="Any medical aid"
+            />
+            <select
+              value={nearbyLanguage}
+              onChange={(e) => setNearbyLanguage(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
+            >
+              <option value="">Any language</option>
+              {LANGUAGE_OPTIONS.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+            <select
+              value={nearbySpecialty}
+              onChange={(e) => setNearbySpecialty(e.target.value)}
+              className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-brand-400"
+            >
+              <option value="">Any specialty</option>
+              {specialties.map((s) => (
+                <option key={s.name} value={s.name}>{s.name}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm text-ink-700">
+              <input
+                type="checkbox"
+                checked={nearbyAcceptingOnly}
+                onChange={(e) => setNearbyAcceptingOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-ink-300 text-brand-500 focus:ring-brand-400"
+              />
+              Accepting new patients
+            </label>
+          </div>
+        )}
+
         {nearby && (
           <div className="mb-16">
             {nearby.length === 0 ? (
               <p className="text-center text-ink-500">
-                No doctors found within {NEARBY_RADIUS_KM} km yet.{' '}
+                No doctors found within {NEARBY_RADIUS_KM} km with these filters.{' '}
                 <Link to="/search" className="font-semibold text-brand-600 hover:underline">Search all of South Africa</Link>
               </p>
             ) : (

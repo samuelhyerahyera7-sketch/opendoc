@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { ApiDoctor } from '../api/client'
@@ -17,6 +17,18 @@ export default function DoctorsMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
+  const onSelectRef = useRef(onSelectDoctor)
+  onSelectRef.current = onSelectDoctor
+
+  // Depend on the actual coordinate values, not object/array/function
+  // identity — callers often pass a fresh array or inline callback on every
+  // render, which would otherwise re-fit (and visibly reset/jump) the map
+  // on every unrelated re-render.
+  const doctorsKey = useMemo(
+    () => doctors.map((d) => `${d.id}:${d.lat}:${d.lng}`).join('|'),
+    [doctors],
+  )
+  const userLocationKey = userLocation ? `${userLocation.lat}:${userLocation.lng}` : ''
 
   useEffect(() => {
     if (!MAPBOX_TOKEN || !containerRef.current || mapRef.current) return
@@ -61,7 +73,7 @@ export default function DoctorsMap({
         'flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-brand-500 text-xs font-bold text-white shadow-md cursor-pointer'
       el.textContent = d.name.split(' ').map((p) => p[0]).slice(0, 2).join('')
       el.title = `${d.name}, ${d.credentials}`
-      el.onclick = () => onSelectDoctor?.(d.id)
+      el.onclick = () => onSelectRef.current?.(d.id)
 
       const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
       const popup = new mapboxgl.Popup({ offset: 20, closeButton: false }).setHTML(
@@ -84,7 +96,8 @@ export default function DoctorsMap({
     if (!bounds.isEmpty() && (withCoords.length > 0 || userLocation)) {
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 0 })
     }
-  }, [doctors, userLocation, onSelectDoctor])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorsKey, userLocationKey])
 
   if (!MAPBOX_TOKEN) {
     return (

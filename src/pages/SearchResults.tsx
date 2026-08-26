@@ -5,6 +5,7 @@ import SearchBar from '../components/SearchBar'
 import DoctorCard from '../components/DoctorCard'
 import MedicalAidSelect from '../components/MedicalAidSelect'
 import { api, type ApiDoctor, type Specialty } from '../api/client'
+import { LANGUAGE_OPTIONS } from '../data/languages'
 import Seo from '../components/Seo'
 
 const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
@@ -13,21 +14,6 @@ type SortKey = 'relevance' | 'rating' | 'distance'
 type ViewMode = 'list' | 'map'
 
 const RADIUS_OPTIONS = [5, 10, 25, 50, 100]
-
-const LANGUAGE_OPTIONS = [
-  'Afrikaans',
-  'English',
-  'isiZulu',
-  'isiXhosa',
-  'Sepedi',
-  'Setswana',
-  'Sesotho',
-  'Xitsonga',
-  'siSwati',
-  'Tshivenda',
-  'isiNdebele',
-  'Portuguese',
-]
 
 export default function SearchResults() {
   const [params] = useSearchParams()
