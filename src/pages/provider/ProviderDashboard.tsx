@@ -584,11 +584,6 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-ink-200" /> Booked</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-ink-200 bg-white" /> Not available</span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-4 border-t border-ink-100 pt-3 text-xs text-ink-400">
-          <span className="flex items-center gap-1.5"><Sun size={12} /> Open 8 AM–5 PM for that day</span>
-          <span className="flex items-center gap-1.5"><Copy size={12} /> Copy that day's hours to the rest of the week</span>
-          <span className="flex items-center gap-1.5"><Eraser size={12} /> Clear all open times for that day</span>
-        </div>
       </div>
 
       {offGridSlots.length > 0 && (
