@@ -84,7 +84,7 @@ export default function DoctorsMap({
 
       const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
       const wazeUrl = `https://waze.com/ul?ll=${d.lat},${d.lng}&navigate=yes`
-      const popup = new mapboxgl.Popup({ offset: 20, closeButton: false }).setHTML(
+      const popup = new mapboxgl.Popup({ offset: 20, closeButton: true }).setHTML(
         `<div style="font-family:inherit;min-width:160px">
           <div style="font-weight:700;font-size:13px;color:#232733">${d.name}, ${d.credentials}</div>
           <div style="font-size:12px;color:#67748c">${d.specialty}</div>
