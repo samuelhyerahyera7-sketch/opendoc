@@ -34,6 +34,7 @@ export default function ProviderSignup() {
   const [cityCoords, setCityCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [addressCoords, setAddressCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [otherSpecialty, setOtherSpecialty] = useState('')
+  const [agreed, setAgreed] = useState(false)
 
   const OTHER_SPECIALTY = '__other__'
 
@@ -64,6 +65,10 @@ export default function ProviderSignup() {
     setError(null)
     if (form.specialty === OTHER_SPECIALTY && !otherSpecialty.trim()) {
       setError('Please tell us your specialty.')
+      return
+    }
+    if (!agreed) {
+      setError('Please agree to the Terms of Service and Privacy Policy to continue.')
       return
     }
     setSubmitting(true)
@@ -334,10 +339,26 @@ export default function ProviderSignup() {
             )}
           </div>
 
+          <label className="flex items-start gap-2 text-sm text-ink-600">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-500 focus:ring-brand-400"
+            />
+            <span>
+              I agree to OpenDoc's{' '}
+              <Link to="/terms" target="_blank" className="font-semibold text-brand-600 hover:underline">Terms of Service</Link>{' '}
+              and{' '}
+              <Link to="/privacy" target="_blank" className="font-semibold text-brand-600 hover:underline">Privacy Policy</Link>,
+              including my responsibilities as a data controller for patient information under POPIA.
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={submitting}
-            className="mt-2 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:opacity-60"
+            disabled={submitting || !agreed}
+            className="mt-2 w-full rounded-full bg-accent-500 py-3 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Creating account…' : 'Create provider account'}
           </button>

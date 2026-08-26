@@ -8,6 +8,7 @@ export default function PatientSignup() {
   const navigate = useNavigate()
   const { token, patient, loading, register } = usePatientAuth()
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '' })
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -17,6 +18,10 @@ export default function PatientSignup() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!agreed) {
+      setError('Please agree to the Terms of Service and Privacy Policy to continue.')
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
@@ -83,10 +88,24 @@ export default function PatientSignup() {
             placeholder="Password (at least 8 characters)"
             className="rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
           />
+          <label className="flex items-start gap-2 text-sm text-ink-600">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-brand-500 focus:ring-brand-400"
+            />
+            <span>
+              I agree to OpenDoc's{' '}
+              <Link to="/terms" target="_blank" className="font-semibold text-brand-600 hover:underline">Terms of Service</Link>{' '}
+              and{' '}
+              <Link to="/privacy" target="_blank" className="font-semibold text-brand-600 hover:underline">Privacy Policy</Link>.
+            </span>
+          </label>
           <button
             type="submit"
-            disabled={submitting}
-            className="mt-2 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:opacity-60"
+            disabled={submitting || !agreed}
+            className="mt-2 w-full rounded-full bg-brand-500 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? 'Creating account…' : 'Create account'}
           </button>

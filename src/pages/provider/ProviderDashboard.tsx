@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom'
 import {
   CalendarPlus,
   Camera,
+  Copy,
+  Eraser,
   FileUp,
   Globe,
   Inbox,
@@ -10,6 +12,7 @@ import {
   LogOut,
   Mail,
   Send,
+  Sun,
   Trash2,
   Download,
   CalendarDays,
@@ -341,6 +344,7 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
+  const [busyDay, setBusyDay] = useState<string | null>(null)
 
   function load() {
     api.getMyProfile(token).then(setProfile)
@@ -415,12 +419,64 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
     }
   }
 
+  async function handleSetBusinessHours(col: DayColumn) {
+    setBusyDay(col.iso)
+    setError(null)
+    try {
+      const toOpen = TIME_OPTIONS.filter((t) => cellFor(col, t).state === 'empty')
+      await Promise.all(toOpen.map((t) => api.addSlot(token, col.absoluteLabel, t, col.iso)))
+      load()
+      onSlotsChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not set business hours for that day.')
+    } finally {
+      setBusyDay(null)
+    }
+  }
+
+  async function handleClearDay(col: DayColumn) {
+    setBusyDay(col.iso)
+    setError(null)
+    try {
+      const toRemove = TIME_OPTIONS.map((t) => cellFor(col, t)).filter((c) => c.state === 'open' && c.slotId)
+      await Promise.all(toRemove.map((c) => api.deleteSlot(token, c.slotId as number)))
+      load()
+      onSlotsChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not clear that day.')
+    } finally {
+      setBusyDay(null)
+    }
+  }
+
+  async function handleCopyToWeek(sourceCol: DayColumn) {
+    const openTimes = TIME_OPTIONS.filter((t) => cellFor(sourceCol, t).state === 'open')
+    if (openTimes.length === 0) return
+    setBusyDay(sourceCol.iso)
+    setError(null)
+    try {
+      const otherCols = dayColumns.filter((c) => c.iso !== sourceCol.iso)
+      const jobs = otherCols.flatMap((col) =>
+        openTimes.filter((t) => cellFor(col, t).state === 'empty').map((t) => api.addSlot(token, col.absoluteLabel, t, col.iso)),
+      )
+      await Promise.all(jobs)
+      load()
+      onSlotsChanged()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not copy this day to the rest of the week.')
+    } finally {
+      setBusyDay(null)
+    }
+  }
+
+  const todayIso = dayColumns[0]?.iso
+
   return (
     <div>
       <div className="rounded-2xl border border-ink-100 bg-white p-6">
         <h2 className="text-lg font-bold text-ink-900">Your calendar</h2>
         <p className="mt-1 text-sm text-ink-500">
-          Click an empty cell to open it up for booking, click an open (teal) cell to close it. Booked cells are locked.
+          Click a cell to open or close it, or use the shortcuts above each day to set a full day at once.
         </p>
         {error && <div className="mt-3 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">{error}</div>}
 
@@ -428,9 +484,14 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
           <table className="w-full border-separate border-spacing-1 text-xs">
             <thead>
               <tr>
-                <th className="w-20" />
+                <th className="sticky left-0 z-10 w-20 bg-white" />
                 {dayColumns.map((col) => (
-                  <th key={col.iso} className="pb-1 text-center font-semibold text-ink-600">
+                  <th
+                    key={col.iso}
+                    className={`min-w-[92px] rounded-t-lg pb-1 pt-1.5 text-center font-semibold ${
+                      col.iso === todayIso ? 'bg-brand-50 text-brand-700' : 'text-ink-600'
+                    }`}
+                  >
                     {col.headerLabel}
                     {col.headerLabel !== col.absoluteLabel && (
                       <span className="block text-[10px] font-normal text-ink-400">{col.absoluteLabel}</span>
@@ -438,27 +499,63 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
                   </th>
                 ))}
               </tr>
+              <tr>
+                <th className="sticky left-0 z-10 bg-white" />
+                {dayColumns.map((col) => (
+                  <th key={col.iso} className={`pb-2 ${col.iso === todayIso ? 'bg-brand-50' : ''}`}>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        title="Open 8 AM–5 PM"
+                        disabled={busyDay === col.iso}
+                        onClick={() => handleSetBusinessHours(col)}
+                        className="rounded-md p-1 text-ink-400 hover:bg-brand-100 hover:text-brand-700 disabled:opacity-40"
+                      >
+                        <Sun size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Copy this day to the rest of the week"
+                        disabled={busyDay === col.iso}
+                        onClick={() => handleCopyToWeek(col)}
+                        className="rounded-md p-1 text-ink-400 hover:bg-brand-100 hover:text-brand-700 disabled:opacity-40"
+                      >
+                        <Copy size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Clear this day"
+                        disabled={busyDay === col.iso}
+                        onClick={() => handleClearDay(col)}
+                        className="rounded-md p-1 text-ink-400 hover:bg-accent-100 hover:text-accent-700 disabled:opacity-40"
+                      >
+                        <Eraser size={13} />
+                      </button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {TIME_OPTIONS.map((time) => (
                 <tr key={time}>
-                  <td className="whitespace-nowrap pr-2 text-right font-medium text-ink-500">{time}</td>
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-white pr-2 text-right font-medium text-ink-500">{time}</td>
                   {dayColumns.map((col) => {
                     const cell = cellFor(col, time)
                     const key = `${col.iso}|${time}`
                     return (
-                      <td key={col.iso} className="p-0">
+                      <td key={col.iso} className={`p-0 ${col.iso === todayIso ? 'bg-brand-50/40' : ''}`}>
                         <button
-                          disabled={busyCell === key || cell.state === 'booked'}
+                          disabled={busyCell === key || busyDay === col.iso || cell.state === 'booked'}
                           onClick={() => handleCellClick(col, time, cell)}
                           title={cell.state === 'booked' ? 'Booked' : cell.state === 'open' ? 'Click to close' : 'Click to open'}
-                          className={`h-7 w-full rounded-md border transition disabled:cursor-not-allowed ${
+                          className={`h-8 w-full rounded-md border transition disabled:cursor-not-allowed ${
                             cell.state === 'open'
                               ? 'border-brand-500 bg-brand-500 hover:bg-brand-600'
                               : cell.state === 'booked'
                                 ? 'border-ink-200 bg-ink-200'
                                 : 'border-ink-100 bg-white hover:border-brand-300 hover:bg-brand-50'
-                          } ${busyCell === key ? 'opacity-50' : ''}`}
+                          } ${busyCell === key || busyDay === col.iso ? 'opacity-50' : ''}`}
                         />
                       </td>
                     )
@@ -473,6 +570,11 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-brand-500" /> Open</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-ink-200" /> Booked</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border border-ink-200 bg-white" /> Not available</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 border-t border-ink-100 pt-3 text-xs text-ink-400">
+          <span className="flex items-center gap-1.5"><Sun size={12} /> Open 8 AM–5 PM for that day</span>
+          <span className="flex items-center gap-1.5"><Copy size={12} /> Copy that day's hours to the rest of the week</span>
+          <span className="flex items-center gap-1.5"><Eraser size={12} /> Clear all open times for that day</span>
         </div>
       </div>
 
@@ -502,6 +604,11 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
 
 function ProfilePanel({ token, doctor, onUpdated }: { token: string; doctor: ApiDoctor; onUpdated: () => void }) {
   const [languages, setLanguages] = useState<string[]>(doctor.languages)
+  const [customLanguages, setCustomLanguages] = useState<string[]>(
+    doctor.languages.filter((l) => !LANGUAGE_OPTIONS.includes(l)),
+  )
+  const [customLanguageInput, setCustomLanguageInput] = useState('')
+  const [showCustomLanguageInput, setShowCustomLanguageInput] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -509,6 +616,21 @@ function ProfilePanel({ token, doctor, onUpdated }: { token: string; doctor: Api
   function toggleLanguage(lang: string) {
     setSaved(false)
     setLanguages((prev) => (prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]))
+  }
+
+  function addCustomLanguage() {
+    const name = customLanguageInput.trim()
+    if (!name || customLanguages.includes(name) || LANGUAGE_OPTIONS.includes(name)) return
+    setSaved(false)
+    setCustomLanguages((prev) => [...prev, name])
+    setLanguages((prev) => [...prev, name])
+    setCustomLanguageInput('')
+  }
+
+  function removeCustomLanguage(name: string) {
+    setSaved(false)
+    setCustomLanguages((prev) => prev.filter((l) => l !== name))
+    setLanguages((prev) => prev.filter((l) => l !== name))
   }
 
   async function handleSave() {
@@ -551,7 +673,56 @@ function ProfilePanel({ token, doctor, onUpdated }: { token: string; doctor: Api
             {lang}
           </button>
         ))}
+        {customLanguages.map((lang) => (
+          <span
+            key={lang}
+            className="flex items-center gap-2 rounded-full border border-brand-500 bg-brand-500 py-1.5 pl-3 pr-2 text-xs font-semibold text-white"
+          >
+            {lang}
+            <button
+              type="button"
+              onClick={() => removeCustomLanguage(lang)}
+              aria-label={`Remove ${lang}`}
+              className="text-white/80 hover:text-white"
+            >
+              &times;
+            </button>
+          </span>
+        ))}
+        {!showCustomLanguageInput && (
+          <button
+            type="button"
+            onClick={() => setShowCustomLanguageInput(true)}
+            className="rounded-full border border-dashed border-ink-300 px-3 py-1.5 text-xs font-semibold text-ink-500 hover:border-brand-300 hover:text-brand-600"
+          >
+            + Other language
+          </button>
+        )}
       </div>
+      {showCustomLanguageInput && (
+        <div className="mt-2 flex gap-2">
+          <input
+            autoFocus
+            value={customLanguageInput}
+            onChange={(e) => setCustomLanguageInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                addCustomLanguage()
+              }
+            }}
+            placeholder="Language name"
+            className="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
+          />
+          <button
+            type="button"
+            onClick={addCustomLanguage}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-600"
+          >
+            Add
+          </button>
+        </div>
+      )}
       <div className="mt-5 flex items-center gap-3">
         <button
           onClick={handleSave}
@@ -592,6 +763,16 @@ function FilesPanel({ token }: { token: string }) {
 
   return (
     <div>
+      <div className="mb-5 rounded-xl border border-ink-100 bg-ink-50 px-4 py-3 text-xs text-ink-600">
+        <p className="font-semibold text-ink-800">Handling patient files under POPIA</p>
+        <p className="mt-1">
+          Files you upload here are only ever visible to you and to any doctor you deliberately transfer them to —
+          OpenDoc never shows them to patients, other doctors, or the public. As the responsible party for the
+          information you upload, you're required under the Protection of Personal Information Act to have a lawful
+          basis for processing it (e.g. direct treatment or referral), keep it accurate and secure, and only share it
+          with colleagues who need it for the patient's care.
+        </p>
+      </div>
       <div className="mb-5 flex gap-2">
         <button
           onClick={() => setSubTab('upload')}

@@ -1,3 +1,6 @@
+// South Africa's 11 official languages plus Portuguese come first (most
+// commonly spoken here), followed by other internationally spoken
+// languages common among South African communities and patients.
 export const LANGUAGE_OPTIONS = [
   'Afrikaans',
   'English',
@@ -11,4 +14,15 @@ export const LANGUAGE_OPTIONS = [
   'Tshivenda',
   'isiNdebele',
   'Portuguese',
+  'French',
+  'German',
+  'Dutch',
+  'Italian',
+  'Greek',
+  'Mandarin',
+  'Hindi',
+  'Gujarati',
+  'Urdu',
+  'Tamil',
+  'Arabic',
 ]
