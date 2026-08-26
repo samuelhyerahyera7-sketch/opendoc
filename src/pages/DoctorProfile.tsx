@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CalendarDays, GraduationCap, Languages, MapPin, ShieldCheck } from 'lucide-react'
+import { CalendarDays, GraduationCap, Languages, LocateFixed, MapPin, ShieldCheck } from 'lucide-react'
 import { api, type ApiDoctor, type Review } from '../api/client'
 import StarRating from '../components/StarRating'
 import { MedicalAidPill } from '../components/MedicalAidBadge'
@@ -10,6 +10,16 @@ import Seo from '../components/Seo'
 
 const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
 
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s))
+}
+
 export default function DoctorProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -18,6 +28,29 @@ export default function DoctorProfile() {
   const [notFound, setNotFound] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<{ id: number; time: string } | null>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
+
+  function findMyLocation() {
+    if (!navigator.geolocation) {
+      setGeoError("Location services aren't available in this browser.")
+      return
+    }
+    setLocating(true)
+    setGeoError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setLocating(false)
+      },
+      () => {
+        setGeoError("Couldn't get your location — check permissions and try again.")
+        setLocating(false)
+      },
+      { timeout: 10000 },
+    )
+  }
 
   useEffect(() => {
     if (!id) return
@@ -142,26 +175,33 @@ export default function DoctorProfile() {
 
             {doctor.lat !== null && doctor.lng !== null && (
               <section className="rounded-2xl border border-ink-100 bg-white p-6">
-                <h2 className="text-lg font-bold text-ink-900">Location</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-bold text-ink-900">Location</h2>
+                  <button
+                    onClick={findMyLocation}
+                    disabled={locating}
+                    className="flex items-center gap-1.5 rounded-full border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+                  >
+                    <LocateFixed size={13} />
+                    {locating ? 'Finding you…' : 'Show my location'}
+                  </button>
+                </div>
                 <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-500">
                   <MapPin size={14} />
                   {doctor.address}{doctor.city ? `, ${doctor.city}` : ''}
                 </p>
+                {geoError && <p className="mt-1 text-xs text-accent-600">{geoError}</p>}
+                {userLocation && (
+                  <p className="mt-1 text-sm font-semibold text-brand-700">
+                    {haversineKm(userLocation, { lat: doctor.lat, lng: doctor.lng }).toFixed(1)} km from your location
+                  </p>
+                )}
                 <div className="mt-4 h-72 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="h-full w-full animate-pulse bg-ink-50" />}>
-                    <DoctorsMap
-                      doctors={[doctor]}
-                      onSelectDoctor={() => {
-                        window.open(
-                          `https://www.google.com/maps/dir/?api=1&destination=${doctor.lat},${doctor.lng}`,
-                          '_blank',
-                          'noopener,noreferrer',
-                        )
-                      }}
-                    />
+                    <DoctorsMap doctors={[doctor]} userLocation={userLocation ?? undefined} />
                   </Suspense>
                 </div>
-                <p className="mt-2 text-xs text-ink-400">Tap the pin to get directions.</p>
+                <p className="mt-2 text-xs text-ink-400">Tap the pin for directions.</p>
               </section>
             )}
 

@@ -23,7 +23,7 @@ export default function DoctorsMap({
     mapboxgl.accessToken = MAPBOX_TOKEN
     mapRef.current = new mapboxgl.Map({
       container: containerRef.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: 'mapbox://styles/mapbox/streets-v12',
       center: userLocation ? [userLocation.lng, userLocation.lat] : [25, -29],
       zoom: userLocation ? 11 : 5,
     })
@@ -48,7 +48,10 @@ export default function DoctorsMap({
     if (userLocation) {
       const el = document.createElement('div')
       el.className = 'h-4 w-4 rounded-full bg-accent-500 ring-4 ring-accent-200'
-      new mapboxgl.Marker({ element: el }).setLngLat([userLocation.lng, userLocation.lat]).addTo(map)
+      const youPopup = new mapboxgl.Popup({ offset: 14, closeButton: false }).setHTML(
+        '<div style="font-family:inherit;font-size:12px;font-weight:600;color:#232733">You are here</div>',
+      )
+      new mapboxgl.Marker({ element: el }).setLngLat([userLocation.lng, userLocation.lat]).setPopup(youPopup).addTo(map)
       bounds.extend([userLocation.lng, userLocation.lat])
     }
 
@@ -60,11 +63,13 @@ export default function DoctorsMap({
       el.title = `${d.name}, ${d.credentials}`
       el.onclick = () => onSelectDoctor?.(d.id)
 
+      const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}`
       const popup = new mapboxgl.Popup({ offset: 20, closeButton: false }).setHTML(
         `<div style="font-family:inherit;min-width:160px">
           <div style="font-weight:700;font-size:13px;color:#232733">${d.name}, ${d.credentials}</div>
           <div style="font-size:12px;color:#67748c">${d.specialty}</div>
           ${d.distanceKm !== null ? `<div style="font-size:12px;color:#1fa898;font-weight:600;margin-top:2px">${d.distanceKm.toFixed(1)} km away</div>` : ''}
+          <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;padding:5px 12px;background:#1fa898;color:#fff;border-radius:9999px;font-size:11px;font-weight:600;text-decoration:none">Get directions</a>
         </div>`,
       )
 
