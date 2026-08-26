@@ -1,8 +1,15 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { usePatientAuth } from '../../context/PatientAuthContext'
+
+// Only ever redirect to a same-origin relative path — never let an open
+// redirect param send someone off-site.
+function safeRedirect(value: string | null): string {
+  if (value && value.startsWith('/') && !value.startsWith('//')) return value
+  return '/patient/dashboard'
+}
 
 export default function PatientLogin() {
   const [email, setEmail] = useState('')
@@ -10,10 +17,12 @@ export default function PatientLogin() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const redirectTo = safeRedirect(params.get('redirect'))
   const { token, patient, loading, login } = usePatientAuth()
 
   if (!loading && token && patient) {
-    return <Navigate to="/patient/dashboard" replace />
+    return <Navigate to={redirectTo} replace />
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -22,7 +31,7 @@ export default function PatientLogin() {
     setSubmitting(true)
     try {
       await login(email, password)
-      navigate('/patient/dashboard')
+      navigate(redirectTo)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     } finally {
@@ -81,7 +90,12 @@ export default function PatientLogin() {
 
         <p className="mt-6 text-center text-sm text-ink-500">
           Don't have an account?{' '}
-          <Link to="/patient/signup" className="font-semibold text-brand-600 hover:underline">Sign up</Link>
+          <Link
+            to={`/patient/signup${params.get('redirect') ? `?redirect=${encodeURIComponent(params.get('redirect')!)}` : ''}`}
+            className="font-semibold text-brand-600 hover:underline"
+          >
+            Sign up
+          </Link>
         </p>
       </div>
     </div>

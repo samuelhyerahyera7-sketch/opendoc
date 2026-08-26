@@ -248,7 +248,7 @@ export default function DoctorProfile() {
             </>
           )}
           <p className="mt-3 text-xs text-ink-400">
-            Free to book. No account required.{' '}
+            Free to book — a quick account keeps your bookings and updates in one place.{' '}
             <Link to="/provider/signup" className="text-brand-600 underline">Are you a doctor? List your practice</Link>
           </p>
         </section>

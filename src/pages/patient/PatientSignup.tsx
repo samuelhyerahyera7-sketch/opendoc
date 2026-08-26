@@ -1,11 +1,20 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { usePatientAuth } from '../../context/PatientAuthContext'
 
+// Only ever redirect to a same-origin relative path — never let an open
+// redirect param send someone off-site.
+function safeRedirect(value: string | null): string {
+  if (value && value.startsWith('/') && !value.startsWith('//')) return value
+  return '/patient/dashboard'
+}
+
 export default function PatientSignup() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const redirectTo = safeRedirect(params.get('redirect'))
   const { token, patient, loading, register } = usePatientAuth()
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', phone: '' })
   const [agreed, setAgreed] = useState(false)
@@ -13,7 +22,7 @@ export default function PatientSignup() {
   const [submitting, setSubmitting] = useState(false)
 
   if (!loading && token && patient) {
-    return <Navigate to="/patient/dashboard" replace />
+    return <Navigate to={redirectTo} replace />
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,7 +35,7 @@ export default function PatientSignup() {
     setSubmitting(true)
     try {
       await register(form)
-      navigate('/patient/dashboard')
+      navigate(redirectTo)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     } finally {
@@ -113,7 +122,12 @@ export default function PatientSignup() {
 
         <p className="mt-6 text-center text-sm text-ink-500">
           Already have an account?{' '}
-          <Link to="/patient/login" className="font-semibold text-brand-600 hover:underline">Log in</Link>
+          <Link
+            to={`/patient/login${params.get('redirect') ? `?redirect=${encodeURIComponent(params.get('redirect')!)}` : ''}`}
+            className="font-semibold text-brand-600 hover:underline"
+          >
+            Log in
+          </Link>
         </p>
       </div>
     </div>

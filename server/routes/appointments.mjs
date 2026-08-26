@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import crypto from 'node:crypto'
 import pool from '../db.mjs'
-import { requireAuth, optionalPatientAuth, requireDoctorOrPatientAuth, requirePatientAuth } from '../auth.mjs'
+import { requireAuth, requireDoctorOrPatientAuth, requirePatientAuth } from '../auth.mjs'
 import {
   sendEmail,
   appointmentConfirmationEmail,
@@ -18,7 +18,7 @@ const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
 
 const router = Router()
 
-router.post('/appointments', optionalPatientAuth, async (req, res) => {
+router.post('/appointments', requirePatientAuth, async (req, res) => {
   const { doctorId, slotId, firstName, lastName, email, phone, reason, newPatient } = req.body
 
   if (!doctorId || !slotId || !firstName || !lastName || !email || !phone) {

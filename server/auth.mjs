@@ -71,16 +71,6 @@ export async function requirePatientAuth(req, res, next) {
   next()
 }
 
-// Optional variant for the booking endpoint: attaches req.patientId when a
-// valid patient session is present, but never blocks the request — guest
-// booking (no account) stays fully supported.
-export async function optionalPatientAuth(req, res, next) {
-  const header = req.headers.authorization || ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null
-  req.patientId = await getPatientIdForToken(token)
-  next()
-}
-
 export async function createPatientActionToken(patientId, purpose) {
   const token = crypto.randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + ACTION_TOKEN_TTL_MS[purpose])

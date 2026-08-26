@@ -252,11 +252,11 @@ export const api = {
       reason?: string
       newPatient?: boolean
     },
-    patientToken?: string,
+    patientToken: string,
   ) =>
     request<Appointment & { emailSent: boolean }>('/appointments', {
       method: 'POST',
-      headers: patientToken ? authHeaders(patientToken) : undefined,
+      headers: authHeaders(patientToken),
       body: JSON.stringify(payload),
     }),
 

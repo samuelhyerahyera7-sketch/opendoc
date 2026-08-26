@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CalendarCheck2, CheckCircle2, MapPin } from 'lucide-react'
 import { api, ApiError, type ApiDoctor } from '../api/client'
 import { usePatientAuth } from '../context/PatientAuthContext'
@@ -12,7 +12,7 @@ export default function Booking() {
   const day = params.get('day') ?? ''
   const time = params.get('time') ?? ''
 
-  const { token: patientToken, patient } = usePatientAuth()
+  const { token: patientToken, patient, loading: authLoading } = usePatientAuth()
   const [doctor, setDoctor] = useState<ApiDoctor | null>(null)
   const [confirmedAppointment, setConfirmedAppointment] = useState<{ emailSent: boolean; reviewToken: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -35,12 +35,20 @@ export default function Booking() {
 
   if (!id || !slotId) return null
 
-  if (!doctor) {
+  // Booking now requires a patient account — redirect to log in/sign up and
+  // bring them straight back to this exact booking once they're in.
+  if (!authLoading && !patient) {
+    const redirect = encodeURIComponent(`/booking/${id}?slotId=${slotId}&day=${encodeURIComponent(day)}&time=${encodeURIComponent(time)}`)
+    return <Navigate to={`/patient/login?redirect=${redirect}`} replace />
+  }
+
+  if (!doctor || authLoading) {
     return <div className="flex flex-1 items-center justify-center py-24 text-ink-400">Loading…</div>
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!patientToken) return
     setSubmitting(true)
     setError(null)
     try {
@@ -55,7 +63,7 @@ export default function Booking() {
           reason: form.reason,
           newPatient: form.newPatient,
         },
-        patientToken ?? undefined,
+        patientToken,
       )
       setConfirmedAppointment({ emailSent: appointment.emailSent, reviewToken: appointment.review_token })
     } catch (err) {
@@ -105,13 +113,6 @@ export default function Booking() {
         <Link to={`/doctor/${doctor.id}`} className="text-sm font-medium text-brand-600 hover:underline">
           &larr; Back to profile
         </Link>
-
-        {!patient && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-600">
-            <span>Log in to track this booking and get updates in one place.</span>
-            <Link to="/patient/login" className="font-semibold text-brand-600 hover:underline">Log in</Link>
-          </div>
-        )}
 
         <div className="mt-4 rounded-2xl border border-ink-100 bg-white p-6">
           <div className="flex items-center gap-4">
