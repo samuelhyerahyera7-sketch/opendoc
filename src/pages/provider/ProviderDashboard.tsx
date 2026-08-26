@@ -3,8 +3,6 @@ import { Navigate } from 'react-router-dom'
 import {
   CalendarPlus,
   Camera,
-  Copy,
-  Eraser,
   FileUp,
   Globe,
   Inbox,
@@ -12,7 +10,6 @@ import {
   LogOut,
   Mail,
   Send,
-  Sun,
   Trash2,
   Download,
   CalendarDays,
@@ -357,7 +354,6 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyCell, setBusyCell] = useState<string | null>(null)
-  const [busyDay, setBusyDay] = useState<string | null>(null)
 
   function load() {
     api.getMyProfile(token).then(setProfile)
@@ -432,65 +428,13 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
     }
   }
 
-  async function handleSetBusinessHours(col: DayColumn) {
-    setBusyDay(col.iso)
-    setError(null)
-    try {
-      const toOpen = TIME_OPTIONS.filter((t) => cellFor(col, t).state === 'empty')
-      await Promise.all(toOpen.map((t) => api.addSlot(token, col.absoluteLabel, t, col.iso)))
-      load()
-      onSlotsChanged()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not set business hours for that day.')
-    } finally {
-      setBusyDay(null)
-    }
-  }
-
-  async function handleClearDay(col: DayColumn) {
-    setBusyDay(col.iso)
-    setError(null)
-    try {
-      const toRemove = TIME_OPTIONS.map((t) => cellFor(col, t)).filter((c) => c.state === 'open' && c.slotId)
-      await Promise.all(toRemove.map((c) => api.deleteSlot(token, c.slotId as number)))
-      load()
-      onSlotsChanged()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not clear that day.')
-    } finally {
-      setBusyDay(null)
-    }
-  }
-
-  async function handleCopyToWeek(sourceCol: DayColumn) {
-    const openTimes = TIME_OPTIONS.filter((t) => cellFor(sourceCol, t).state === 'open')
-    if (openTimes.length === 0) return
-    setBusyDay(sourceCol.iso)
-    setError(null)
-    try {
-      const otherCols = dayColumns.filter((c) => c.iso !== sourceCol.iso)
-      const jobs = otherCols.flatMap((col) =>
-        openTimes.filter((t) => cellFor(col, t).state === 'empty').map((t) => api.addSlot(token, col.absoluteLabel, t, col.iso)),
-      )
-      await Promise.all(jobs)
-      load()
-      onSlotsChanged()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not copy this day to the rest of the week.')
-    } finally {
-      setBusyDay(null)
-    }
-  }
-
   const todayIso = dayColumns[0]?.iso
 
   return (
     <div>
       <div className="rounded-2xl border border-ink-100 bg-white p-6">
         <h2 className="text-lg font-bold text-ink-900">Your calendar</h2>
-        <p className="mt-1 text-sm text-ink-500">
-          Click a cell to open or close it, or use the shortcuts above each day to set a full day at once.
-        </p>
+        <p className="mt-1 text-sm text-ink-500">Click a cell to open or close it.</p>
         {error && <div className="mt-3 rounded-lg bg-accent-50 px-3 py-2 text-xs text-accent-700">{error}</div>}
 
         <div className="mt-5 overflow-x-auto">
@@ -512,42 +456,6 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
                   </th>
                 ))}
               </tr>
-              <tr>
-                <th className="sticky left-0 z-10 bg-white" />
-                {dayColumns.map((col) => (
-                  <th key={col.iso} className={`pb-2 ${col.iso === todayIso ? 'bg-brand-50' : ''}`}>
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        title="Open 8 AM–5 PM"
-                        disabled={busyDay === col.iso}
-                        onClick={() => handleSetBusinessHours(col)}
-                        className="rounded-md p-1 text-ink-400 hover:bg-brand-100 hover:text-brand-700 disabled:opacity-40"
-                      >
-                        <Sun size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Copy this day to the rest of the week"
-                        disabled={busyDay === col.iso}
-                        onClick={() => handleCopyToWeek(col)}
-                        className="rounded-md p-1 text-ink-400 hover:bg-brand-100 hover:text-brand-700 disabled:opacity-40"
-                      >
-                        <Copy size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Clear this day"
-                        disabled={busyDay === col.iso}
-                        onClick={() => handleClearDay(col)}
-                        className="rounded-md p-1 text-ink-400 hover:bg-accent-100 hover:text-accent-700 disabled:opacity-40"
-                      >
-                        <Eraser size={13} />
-                      </button>
-                    </div>
-                  </th>
-                ))}
-              </tr>
             </thead>
             <tbody>
               {TIME_OPTIONS.map((time) => (
@@ -559,7 +467,7 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
                     return (
                       <td key={col.iso} className={`p-0 ${col.iso === todayIso ? 'bg-brand-50/40' : ''}`}>
                         <button
-                          disabled={busyCell === key || busyDay === col.iso || cell.state === 'booked'}
+                          disabled={busyCell === key || cell.state === 'booked'}
                           onClick={() => handleCellClick(col, time, cell)}
                           title={cell.state === 'booked' ? 'Booked' : cell.state === 'open' ? 'Click to close' : 'Click to open'}
                           className={`h-8 w-full rounded-md border transition disabled:cursor-not-allowed ${
@@ -568,7 +476,7 @@ function SchedulePanel({ token, onSlotsChanged }: { token: string; onSlotsChange
                               : cell.state === 'booked'
                                 ? 'border-ink-200 bg-ink-200'
                                 : 'border-ink-100 bg-white hover:border-brand-300 hover:bg-brand-50'
-                          } ${busyCell === key || busyDay === col.iso ? 'opacity-50' : ''}`}
+                          } ${busyCell === key ? 'opacity-50' : ''}`}
                         />
                       </td>
                     )
