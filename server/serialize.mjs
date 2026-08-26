@@ -1,5 +1,34 @@
 import pool from './db.mjs'
 
+const SA_TIME_ZONE = 'Africa/Johannesburg'
+
+export function saNow() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date())
+  const get = (type) => parts.find((p) => p.type === type).value
+  return {
+    dateIso: `${get('year')}-${get('month')}-${get('day')}`,
+    minutes: Number(get('hour')) * 60 + Number(get('minute')),
+  }
+}
+
+// Parses "08:30 AM" / "2:00 PM" into minutes since midnight. Returns null if
+// it doesn't match the expected format (kept visible rather than dropped).
+export function parseTimeLabelMinutes(label) {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim())
+  if (!match) return null
+  let hour = Number(match[1]) % 12
+  if (/pm/i.test(match[3])) hour += 12
+  return hour * 60 + Number(match[2])
+}
+
 export async function serializeDoctor(row, { includePrivate = false, distanceKm = null } = {}) {
   const [insurancesResult, slotsResult] = await Promise.all([
     pool.query('SELECT insurance FROM doctor_insurances WHERE doctor_id = $1 ORDER BY insurance', [row.id]),
@@ -34,11 +63,20 @@ export async function serializeDoctor(row, { includePrivate = false, distanceKm 
     slots: [],
   }
 
-  // Patients booking never need to see two identical-looking slots for the
-  // same day/time (a leftover duplicate row) — collapse those. The doctor's
-  // own dashboard keeps every row so duplicates stay visible to clean up.
   let slotRows = slotsResult.rows
   if (!includePrivate) {
+    // Patients booking should never see a time slot for today that has
+    // already passed, and never see two identical-looking slots for the
+    // same day/time (a leftover duplicate row). The doctor's own dashboard
+    // keeps every row so duplicates stay visible to clean up.
+    const { dateIso: todayIso, minutes: nowMinutes } = saNow()
+    slotRows = slotRows.filter((s) => {
+      if (s.slot_date && s.slot_date.toISOString().slice(0, 10) === todayIso) {
+        const slotMinutes = parseTimeLabelMinutes(s.time_label)
+        if (slotMinutes !== null && slotMinutes <= nowMinutes) return false
+      }
+      return true
+    })
     const seen = new Set()
     slotRows = slotRows.filter((s) => {
       const key = `${s.day_label}|${s.time_label}`

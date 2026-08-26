@@ -12,6 +12,7 @@ import {
   appointmentProposalDecidedEmail,
 } from '../email.mjs'
 import { notify, notifyPatient } from '../notifications.mjs'
+import { saNow, parseTimeLabelMinutes } from '../serialize.mjs'
 
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
 
@@ -28,6 +29,14 @@ router.post('/appointments', optionalPatientAuth, async (req, res) => {
   const slot = slotRows[0]
   if (!slot) return res.status(404).json({ error: 'That time slot could not be found' })
   if (slot.is_booked) return res.status(409).json({ error: 'That time slot was just booked by someone else' })
+  if (slot.slot_date) {
+    const { dateIso: todayIso, minutes: nowMinutes } = saNow()
+    const slotMinutes = parseTimeLabelMinutes(slot.time_label)
+    const slotDateIso = slot.slot_date.toISOString().slice(0, 10)
+    if (slotDateIso < todayIso || (slotDateIso === todayIso && slotMinutes !== null && slotMinutes <= nowMinutes)) {
+      return res.status(410).json({ error: 'That time slot has already passed' })
+    }
+  }
 
   const { rows: doctorRows } = await pool.query('SELECT * FROM doctors WHERE id = $1', [doctorId])
   const doctor = doctorRows[0]
