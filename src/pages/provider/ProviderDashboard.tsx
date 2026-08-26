@@ -75,7 +75,7 @@ export default function ProviderDashboard() {
         )}
         {token && !doctor.emailVerified && <EmailVerificationBanner token={token} />}
 
-        <div className="mb-6 flex gap-2 overflow-x-auto">
+        <div className="mb-6 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <TabButton active={tab === 'appointments'} onClick={() => setTab('appointments')} icon={CalendarDays}>
             Appointments
           </TabButton>
@@ -113,7 +113,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+      className={`flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-semibold transition sm:justify-start sm:px-4 ${
         active ? 'bg-brand-500 text-white' : 'bg-white text-ink-600 ring-1 ring-ink-200 hover:bg-ink-50'
       }`}
     >
