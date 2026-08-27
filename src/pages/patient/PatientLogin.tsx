@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { usePatientAuth } from '../../context/PatientAuthContext'
+import PasswordInput from '../../components/PasswordInput'
 
 // Only ever redirect to a same-origin relative path — never let an open
 // redirect param send someone off-site.
@@ -70,9 +71,8 @@ export default function PatientLogin() {
                 Forgot password?
               </Link>
             </div>
-            <input
+            <PasswordInput
               required
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ShieldCheck, Trash2 } from 'lucide-react'
 import { api, ApiError, type AdminIdentity, type ApiDoctor } from '../api/client'
+import PasswordInput from '../components/PasswordInput'
 
 type Tab = 'pending' | 'all'
 
@@ -111,8 +112,7 @@ export default function AdminDashboard() {
               placeholder="Email"
               className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
             />
-            <input
-              type="password"
+            <PasswordInput
               required
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}

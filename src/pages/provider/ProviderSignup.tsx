@@ -5,6 +5,7 @@ import { api, ApiError, type Specialty } from '../../api/client'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import MedicalAidLogo from '../../components/MedicalAidBadge'
 import LocationAutocomplete from '../../components/LocationAutocomplete'
+import PasswordInput from '../../components/PasswordInput'
 import { findLocationByName } from '../../data/saLocations'
 
 export default function ProviderSignup() {
@@ -185,10 +186,9 @@ export default function ProviderSignup() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink-700">Password</label>
-              <input
+              <PasswordInput
                 required
                 minLength={8}
-                type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"

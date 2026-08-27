@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { User } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import { usePatientAuth } from '../../context/PatientAuthContext'
+import PasswordInput from '../../components/PasswordInput'
 
 // Only ever redirect to a same-origin relative path — never let an open
 // redirect param send someone off-site.
@@ -88,14 +89,13 @@ export default function PatientSignup() {
             placeholder="Phone (optional)"
             className="rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
           />
-          <input
+          <PasswordInput
             required
             minLength={8}
-            type="password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             placeholder="Password (at least 8 characters)"
-            className="rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
+            className="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-brand-400"
           />
           <label className="flex items-start gap-2 text-sm text-ink-600">
             <input
