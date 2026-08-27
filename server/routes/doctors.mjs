@@ -294,7 +294,7 @@ router.post('/doctors/register', authLimiter, validateBody(doctorRegisterSchema)
         specialty,
         email,
         hashPassword(password),
-        `https://i.pravatar.cc/300?u=${id}`,
+        '',
         address || '',
         city || '',
         typeof lat === 'number' ? lat : null,

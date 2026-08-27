@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import {
   CalendarPlus,
@@ -12,12 +12,15 @@ import {
   Trash2,
   Download,
   CalendarDays,
+  User,
+  X,
 } from 'lucide-react'
 import { useDoctorAuth } from '../../context/DoctorAuthContext'
 import { api, ApiError, type ApiDoctor, type Appointment, type DirectoryDoctor, type PatientFile, type ReceivedFile } from '../../api/client'
 import { LANGUAGE_OPTIONS } from '../../data/languages'
 import { TIME_OPTIONS, buildDayColumns, type DayColumn } from '../../lib/schedule'
 import VerificationBadge from '../../components/VerificationBadge'
+import DoctorAvatar from '../../components/DoctorAvatar'
 import NotificationBell from '../../components/NotificationBell'
 
 type Tab = 'appointments' | 'schedule' | 'files' | 'profile'
@@ -134,6 +137,8 @@ function PhotoUploader({
 }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [enlarged, setEnlarged] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -153,19 +158,59 @@ function PhotoUploader({
 
   return (
     <div className="shrink-0">
-      <label className="group relative block h-14 w-14 cursor-pointer overflow-hidden rounded-xl">
-        <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
-          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
-        </span>
-        {/* Hover states don't exist on touchscreens, so this badge stays visible
-            at all times — otherwise there's no visual cue the photo is tappable. */}
-        <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-brand-500 text-white shadow-sm">
-          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
-        </span>
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} disabled={uploading} className="sr-only" />
-      </label>
+      <button
+        type="button"
+        onClick={() => doctor.photo && setEnlarged(true)}
+        className="block h-14 w-14 overflow-hidden rounded-xl"
+        title={doctor.photo ? 'View photo' : undefined}
+      >
+        {doctor.photo ? (
+          <img src={doctor.photo} alt={doctor.name} className="h-14 w-14 rounded-xl object-cover" />
+        ) : (
+          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-ink-100 text-ink-400">
+            <User size={22} />
+          </span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:underline disabled:opacity-60"
+      >
+        {uploading ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
+        {doctor.photo ? 'Change photo' : 'Add photo'}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleFile}
+        disabled={uploading}
+        className="sr-only"
+      />
       {error && <p className="mt-1 max-w-[7rem] text-[10px] text-accent-700">{error}</p>}
+
+      {enlarged && doctor.photo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setEnlarged(false)}
+        >
+          <button
+            onClick={() => setEnlarged(false)}
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <X size={22} />
+          </button>
+          <img
+            src={doctor.photo}
+            alt={doctor.name}
+            className="max-h-[85vh] max-w-full rounded-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -955,7 +1000,7 @@ function FileRow({
                   onClick={() => handleTransfer(d)}
                   className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-left text-sm hover:bg-brand-50 disabled:opacity-60"
                 >
-                  <img src={d.photo} alt={d.name} className="h-7 w-7 rounded-full object-cover" />
+                  <DoctorAvatar photo={d.photo} name={d.name} iconSize={13} className="h-7 w-7 rounded-full object-cover" />
                   <span>
                     <span className="font-semibold text-ink-900">{d.name}, {d.credentials}</span>{' '}
                     <span className="text-ink-500">— {d.specialty}</span>

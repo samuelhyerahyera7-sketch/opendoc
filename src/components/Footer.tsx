@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { footerMedicalAids, specialtyIcons, slugifySpecialty } from '../data/staticData'
 import { slugifyMedicalAid } from '../data/medicalAids'
 import { metros } from '../data/metros'
@@ -7,6 +7,27 @@ const specialties = Object.keys(specialtyIcons).map((name) => ({ name }))
 const featuredMetro = metros[0]
 
 export default function Footer() {
+  const location = useLocation()
+  const onProviderPages = location.pathname.startsWith('/provider')
+
+  // The provider portal already has its own header identity — the full
+  // patient-marketing footer (medical aid schemes, specialties, "For
+  // Providers" links that duplicate the portal itself) doesn't belong on a
+  // doctor's own dashboard, just a minimal legal/copyright line.
+  if (onProviderPages) {
+    return (
+      <footer className="mt-auto border-t border-ink-100 bg-ink-950 text-ink-300">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-6 text-sm sm:flex-row sm:px-6 lg:px-8">
+          <p>&copy; {new Date().getFullYear()} OpenDoc. All rights reserved.</p>
+          <div className="flex gap-4">
+            <Link to="/privacy" className="hover:text-white">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-white">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
+    )
+  }
+
   return (
     <footer className="mt-auto border-t border-ink-100 bg-ink-950 text-ink-300">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">

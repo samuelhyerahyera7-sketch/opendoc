@@ -8,6 +8,7 @@ import { CASH_LABEL } from '../data/medicalAids'
 import { TIME_OPTIONS, buildDayColumns } from '../lib/schedule'
 import VerificationBadge from '../components/VerificationBadge'
 import Seo from '../components/Seo'
+import DoctorAvatar from '../components/DoctorAvatar'
 
 const DoctorsMap = lazy(() => import('../components/DoctorsMap'))
 
@@ -122,7 +123,12 @@ export default function DoctorProfile() {
       <div className="border-b border-ink-100 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 sm:flex-row">
-            <img src={doctor.photo} alt={doctor.name} className="h-28 w-28 shrink-0 rounded-2xl object-cover" />
+            <DoctorAvatar
+              photo={doctor.photo}
+              name={doctor.name}
+              iconSize={40}
+              className="h-28 w-28 shrink-0 rounded-2xl object-cover"
+            />
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-ink-900 sm:text-3xl">
                 {doctor.name}, {doctor.credentials}

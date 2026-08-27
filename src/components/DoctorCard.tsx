@@ -5,15 +5,17 @@ import StarRating from './StarRating'
 import { MedicalAidPill } from './MedicalAidBadge'
 import { CASH_LABEL } from '../data/medicalAids'
 import VerificationBadge from './VerificationBadge'
+import DoctorAvatar from './DoctorAvatar'
 
 export default function DoctorCard({ doctor }: { doctor: ApiDoctor }) {
   const nextSlot = doctor.slots[0]
 
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-ink-100 bg-white p-5 transition hover:shadow-lg hover:shadow-ink-900/5 sm:flex-row">
-      <img
-        src={doctor.photo}
-        alt={doctor.name}
+      <DoctorAvatar
+        photo={doctor.photo}
+        name={doctor.name}
+        iconSize={32}
         className="h-24 w-24 shrink-0 self-center rounded-xl object-cover sm:self-start"
       />
       <div className="flex-1">

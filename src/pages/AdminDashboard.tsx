@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, ShieldCheck, Trash2 } from 'lucide-react'
 import { api, ApiError, type AdminIdentity, type ApiDoctor } from '../api/client'
 import PasswordInput from '../components/PasswordInput'
+import DoctorAvatar from '../components/DoctorAvatar'
 
 type Tab = 'pending' | 'all'
 
@@ -253,7 +254,7 @@ export default function AdminDashboard() {
 
                 {expanded && (
                   <div className="mt-4 flex flex-col gap-4 border-t border-ink-100 pt-4 sm:flex-row">
-                    <img src={d.photo} alt={d.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+                    <DoctorAvatar photo={d.photo} name={d.name} iconSize={28} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
                     <div className="grid flex-1 gap-3 sm:grid-cols-2">
                       <div>
                         <p className="text-xs font-semibold uppercase text-ink-400">Practice address</p>

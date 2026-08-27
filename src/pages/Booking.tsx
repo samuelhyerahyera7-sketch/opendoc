@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-r
 import { CalendarCheck2, CheckCircle2, MapPin } from 'lucide-react'
 import { api, ApiError, type ApiDoctor } from '../api/client'
 import { usePatientAuth } from '../context/PatientAuthContext'
+import DoctorAvatar from '../components/DoctorAvatar'
 
 export default function Booking() {
   const { id } = useParams()
@@ -116,7 +117,7 @@ export default function Booking() {
 
         <div className="mt-4 rounded-2xl border border-ink-100 bg-white p-6">
           <div className="flex items-center gap-4">
-            <img src={doctor.photo} alt={doctor.name} className="h-16 w-16 rounded-xl object-cover" />
+            <DoctorAvatar photo={doctor.photo} name={doctor.name} iconSize={24} className="h-16 w-16 rounded-xl object-cover" />
             <div>
               <p className="font-bold text-ink-900">{doctor.name}, {doctor.credentials}</p>
               <p className="text-sm text-brand-600">{doctor.specialty}</p>
