@@ -84,4 +84,40 @@ router.get('/admin/me', requireAdmin, (req, res) => {
   res.json(req.admin)
 })
 
+// Self-service email/password change. Requires an active admin session
+// (requireAdmin) AND the current password — never a bare secret — so it
+// can only ever be used by whoever already controls the account, exactly
+// like the doctor/patient equivalents.
+router.post('/admin/me/credentials', requireAdmin, loginLimiter, async (req, res) => {
+  const { currentPassword, newEmail, newPassword } = req.body || {}
+  const { rows } = await pool.query('SELECT * FROM admin_users WHERE id = $1', [req.admin.id])
+  const admin = rows[0]
+  if (!admin || !verifyPassword(currentPassword || '', admin.password_hash)) {
+    return res.status(401).json({ error: 'Current password is incorrect' })
+  }
+
+  const email = newEmail ? emailSchema.safeParse(newEmail) : null
+  if (email && !email.success) return res.status(400).json({ error: email.error.issues[0]?.message || 'Invalid email' })
+
+  let passwordHash = admin.password_hash
+  if (newPassword) {
+    const passwordCheck = adminPasswordSchema.safeParse(newPassword)
+    if (!passwordCheck.success) return res.status(400).json({ error: passwordCheck.error.issues[0]?.message || 'Invalid password' })
+    passwordHash = hashAdminPassword(passwordCheck.data)
+  }
+
+  await pool.query('UPDATE admin_users SET email = COALESCE($1, email), password_hash = $2, updated_at = now() WHERE id = $3', [
+    email ? email.data : null,
+    passwordHash,
+    admin.id,
+  ])
+  // Cut every other session on this account — the one making this request
+  // gets a fresh one below, same pattern as doctor/patient password changes.
+  await pool.query('DELETE FROM admin_sessions WHERE admin_id = $1', [admin.id])
+  const token = await createAdminSession(admin.id, req)
+  res.cookie(ADMIN_COOKIE_NAME, token, adminCookieOptions())
+  await logAudit(req, 'ADMIN_CREDENTIALS_CHANGED', {})
+  res.json({ id: admin.id, email: email ? email.data : admin.email, role: admin.role })
+})
+
 export default router
