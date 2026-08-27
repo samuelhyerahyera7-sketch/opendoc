@@ -23,10 +23,10 @@ export const passwordSchema = z
 
 export const adminPasswordSchema = z
   .string()
-  .min(12, 'Admin passwords must be at least 12 characters')
+  .min(8, 'Admin passwords must be at least 8 characters')
   .max(200)
-  .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v) && /[0-9]/.test(v), {
-    message: 'Admin passwords must contain uppercase, lowercase, and a number',
+  .refine((v) => /[a-zA-Z]/.test(v) && /[0-9]/.test(v), {
+    message: 'Admin passwords must contain both letters and numbers',
   })
 
 export const adminLoginSchema = z.object({
